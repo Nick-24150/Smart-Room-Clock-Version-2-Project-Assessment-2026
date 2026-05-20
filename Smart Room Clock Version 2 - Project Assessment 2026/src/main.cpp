@@ -5,7 +5,6 @@
 #include <LittleFS.h>
 #include <Arduino_JSON.h>
 #include "secrets.h"  //double quotes rather than angle brackets makes the compiler look in the sketch folder rather than the library folder
-//#include <LibPrintf.h>
 #include <arduino.h>
 #include <Wire.h>
 #include <Adafruit_AHTX0.h> 
@@ -75,6 +74,14 @@ const int COMFORTABLE_THRESHOLD = 25; //below this temperature is considered com
 const int WARM_THRESHOLD = 30; //below this temperature is considered warm
 
 
+//------------- WiFi setup --------------
+//the Wifi status
+//int status = WL_IDLE_STATUS;
+
+//Your network name and password are hidden in the secrets.h file
+const char SSID[] = SECRET_SSID;
+const char PASSWORD[] = SECRET_PASS;
+
 
 //-----FUNCTION PROTOTYPES-----
 void neopixelTemperatureColour();
@@ -84,10 +91,162 @@ void buzzerOutput();
 void flashLED(int delayTimes, int numTimes);
 void roomLighting();
 void checkSerialForAlarm();
-
+void handleWebSocketMessage(void* arg, uint8_t* data, size_t len);
+void onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len);
+void initWebSocket();
+void initLittleFS();
 
 //-----Arrays for the days of the week-----
 const char DAYS_OF_THE_WEEK[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+
+//------------- WebServer setup --------------
+// Create AsyncWebServer object on port 80
+AsyncWebServer server(80);
+// Create a WebSocket object
+AsyncWebSocket ws("/ws");
+
+
+/**
+LittleFS setup - wants to be first method for some reason?
+*/
+void initLittleFS() {
+  if (!LittleFS.begin(true)) {
+    Serial.println("LittleFS failed to setup");
+  } else {
+    Serial.println("LittleFS should be going now");
+  }
+}
+
+/**
+LittleFS reading a file 
+*/
+String readFile(fs::FS& fs, const char* path) {
+  Serial.print("Reading file: ");
+  Serial.println(path);
+  File file = fs.open(path);
+  if (!file || file.isDirectory()) {
+    Serial.println("readFile failed to open file");
+    return String();
+  }
+  String fileContent;
+  while (file.available()) {
+    fileContent = file.readStringUntil('\n');
+    break;
+  }
+  return fileContent;
+}
+
+/**
+LittleFS writing a file
+*/
+void writeFile(fs::FS& fs, const char* path, const char* message) {
+  Serial.print("Writing file: ");
+  Serial.println(path);
+  File file = fs.open(path, FILE_WRITE);
+  if (!file) {
+    Serial.println("writeFile failed to write to file");
+    return;
+  }
+  if (file.print(message)) {
+    Serial.println("- writeFile success");
+  } else {
+    Serial.println("- writeFile failed");
+  }
+}
+
+/**
+set up a JSON array and hold the states of all values we care about
+pins and their current states variables and their current values
+*/
+String getOutputStates() {
+  JSONVar myArray;
+
+  myArray["values"][0]["pinNum"] = String(2);
+  myArray["values"][0]["state"] = String(digitalRead(2));
+
+  myArray["values"][1]["pinNum"] = String(13);
+  myArray["values"][1]["state"] = String(digitalRead(13));
+
+  myArray["values"][2]["r"] = String(red);
+  myArray["values"][2]["g"] = String(green);
+  myArray["values"][2]["b"] = String(blue);
+
+  String jsonString = JSON.stringify(myArray);
+  return jsonString;
+}
+
+/**
+Sends a message to all clients connected to ip address with a JSON message
+*/
+void notifyClients(String state) {
+  ws.textAll(state);
+}
+
+/**
+Handles messages from clients in the if statements below
+*/
+void handleWebSocketMessage(void* arg, uint8_t* data, size_t len) {
+  AwsFrameInfo* info = (AwsFrameInfo*)arg;
+  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+    data[len] = 0;
+    //if message is states send the state of all gpio pins
+    if (strcmp((char*)data, "getStates") == 0) {
+      notifyClients(getOutputStates());
+    } else {
+      //(char*)data should be in this format "rgb(255,87,51)" when it isn't 'getStates'
+      std::string rgb = (char*)data;
+      byte firstComma = rgb.find(',');
+      byte secondComma = rgb.find(',', firstComma + 1);
+      byte lastBracket = rgb.find(')');
+
+      red = stoi(rgb.substr(4, firstComma));
+      green = stoi(rgb.substr(firstComma + 1, secondComma - firstComma - 1));
+      blue = stoi(rgb.substr(secondComma + 1, lastBracket));
+    }
+    //Just to alternate the led on and off to show we can digitalRead and digitalWrite here
+    //digitalWrite(LEDPIN, !digitalRead(LEDPIN)); //AM I AN ISSUE NEED TO TEST--------------------------------------
+  }
+}
+
+/**
+Event listener handles different asyncronous steps from the web socket
+*/
+void onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len) {
+  switch (type) {
+    case WS_EVT_CONNECT:
+      //Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+      Serial.print("WebSocket client ");
+      Serial.print(client->id());
+      Serial.print(" connected from ");
+      Serial.println(client->remoteIP().toString().c_str());
+      break;
+    case WS_EVT_DISCONNECT:
+      //Serial.printf("WebSocket client #%u disconnected\n", client->id());
+      Serial.print("WebSocket client ");
+      Serial.print(client->id());
+      Serial.println(" disconnected\n");
+      break;
+    case WS_EVT_DATA:
+      handleWebSocketMessage(arg, data, len);
+      break;
+    case WS_EVT_PONG:
+    case WS_EVT_ERROR:
+      break;
+  }
+}
+
+
+/**
+WebSocket setup
+What to do when an event happens on the ws socket and adding a handler to the server
+*/
+void initWebSocket() {
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+  Serial.println("websocket should be running now");
+}
+
 
 //-----SETUP-----
 void setup() {
@@ -148,13 +307,47 @@ void setup() {
   // When time needs to be re-set on a previously configured device, the following line sets the RTC to the date & time this sketch was compiled
   realTimeClock.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
-  //Ask user to set alarm time via Serial Monitor
-  Serial.println("-------------------------------------------------");
-  Serial.println("Smart Room Clock ready ✅");
-  Serial.println("To set an alarm, type time in HH:MM (24-hour).");
-  Serial.println("Feel free to change the alarm at anytime using the Serial Monitor.");
-  Serial.println("Example: 07:30 or 21:45");
-  Serial.println("-------------------------------------------------");
+  /* CHANGES FROM SERIAL MONITOR TO WEB INTERFACE */
+
+  // //Ask user to set alarm time via Serial Monitor
+  // Serial.println("-------------------------------------------------");
+  // Serial.println("Smart Room Clock ready ✅");
+  // Serial.println("To set an alarm, type time in HH:MM (24-hour).");
+  // Serial.println("Feel free to change the alarm at anytime using the Serial Monitor.");
+  // Serial.println("Example: 07:30 or 21:45");
+  // Serial.println("-------------------------------------------------");
+
+  //----------- WiFi setup ------------
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(SSID, PASSWORD);
+  Serial.print("Trying to connect WiFi ");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+  Serial.println(".");
+  if (WL_CONNECTED == true) {
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("Issues showing the IP address");
+  }
+  Serial.println("WiFi should be going now");
+
+  //----------- LittleFS setup ------------
+  initLittleFS();
+
+  //----------- webSocket setup ------------
+  initWebSocket();
+
+  //------------- Web Server setup --------------
+  // Web Server Root URL
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(LittleFS, "/index.html", "text/html", false);
+  });
+  server.serveStatic("/", LittleFS, "/");
+
+  server.begin();
+  Serial.println("webserver should be running now");
 
 }
 
@@ -166,6 +359,13 @@ void loop() {
   roomLighting(); // Update room lighting based on LDR reading
   buzzerOutput(); // Control buzzer output based on alarm
   checkSerialForAlarm(); // Check for alarms in the serial input
+  initWebSocket(); // Handle WebSocket events and messages
+  handleWebSocketMessage(); // Handle incoming WebSocket messages
+  notifyClients(getOutputStates()); // Send current states to all WebSocket clients
+  writeFile(LittleFS, "/test.txt", "Hello, LittleFS!"); // Test writing to LittleFS
+  initLittleFS(); // Test initializing LittleFS
+  onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len); // Test WebSocket event handling
+  
 
   DateTime now = realTimeClock.now(); // Get current time
 
@@ -195,6 +395,15 @@ void loop() {
     lastScreenPhase = currentScreenPhase; //update lastScreenPhase to currentScreenPhase
     needsRefresh = false; //reset needsRefresh flag
   }
+
+  //frees up memory by refreshing the list of clients connected
+  ws.cleanupClients();
+  delay(1000); //slows things down for button clicks but stops flickering screen
+
+  //seems to spam the webpage with the states so like the serial monitor
+  //give it a delay to slow this traffic down?
+  //picks up button click real quick though :)
+  notifyClients(getOutputStates()); //AM I AN ISSUE NEED TO TEST--------------------------------------
 
   delay(500); // Delay to prevent excessive CPU usage
 }
