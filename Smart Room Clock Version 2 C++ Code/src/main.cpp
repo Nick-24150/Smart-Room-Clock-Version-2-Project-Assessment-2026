@@ -349,6 +349,11 @@ void setup() {
   server.begin();
   Serial.println("webserver should be running now");
 
+  ////------------- Startup Beep -------------
+  tone(BUZZER_PIN, 1000);
+  delay(150);
+  noTone(BUZZER_PIN);
+
 }
 
 //-----MAIN LOOP-----
