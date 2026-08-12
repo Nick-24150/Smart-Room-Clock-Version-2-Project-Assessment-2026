@@ -3,9 +3,9 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
-#include <Arduino_JSON.h>
 #include "secrets.h"  //double quotes rather than angle brackets makes the compiler look in the sketch folder rather than the library folder
-#include <arduino.h>
+//#include <LibPrintf.h>
+#include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_AHTX0.h> 
 //#include <Adafruit_BMP280.h>  //(OPTIONAL) if using the BMP280 sensor, uncomment this line
@@ -15,9 +15,158 @@
 #include <Adafruit_NeoPixel.h>
 #include <RTClib.h> 
 
+//-----WiFi setup-----
+//the Wifi status
+//int status = WL_IDLE_STATUS;
 
-//-----RTC OBJECT-----
+//Your network name and password are hidden in the secrets.h file
+const char SSID[] = SECRET_SSID;
+const char PASSWORD[] = SECRET_PASS;
+
+//-----WebServer Setup-----
+AsyncWebServer server(80); // Create AsyncWebServer object on port 80
+AsyncWebSocket ws("/ws"); // Create a WebSocket object
+
+//-----RTC Setup-----
 RTC_DS3231 realTimeClock; //DS3231 Real Time Clock module used to track the time
+
+//-----LittleFS Setup-----
+void initLittleFS() {
+  if (!LittleFS.begin(true)) {
+    Serial.println("LittleFS failed to setup. Please check the filesystem.");
+  } else {
+    Serial.println("LittleFS should be going now. Reading files...");
+  }
+}
+
+
+//-----LittleFS reading a file-----
+String readingFile(fs::FS& fs, const char* path) {
+  Serial.print("Reading file: ");
+  Serial.println(path);
+  File file = fs.open(path);
+  if (!file || file.isDirectory()) {
+    Serial.println("readingFile failed to open file");
+    return String();
+  }
+  String fileContent;
+  while (file.available()) {
+    fileContent = file.readStringUntil('\n');
+    break;
+  }
+  return fileContent;
+}
+
+//-----LittleFS writing a file-----
+void writingFile(fs::FS& fs, const char* path, const char* message) {
+  Serial.print("Writing file: ");
+  Serial.println(path);
+  File file = fs.open(path, FILE_WRITE);
+  if (!file) {
+    Serial.println("writingFile failed to write to file");
+    return;
+  }
+  if (file.print(message)) {
+    Serial.println("- writingFile success");
+  } else {
+    Serial.println("- writingFile failed");
+  }
+}
+
+/**
+set up a JSON array and hold the states of all values we care about
+pins and their current states variables and their current values
+*/
+extern Adafruit_AHTX0 ahtSensor;
+extern const byte LDRPIN;
+extern bool alarmActive;
+extern DateTime alarmTime;
+const char DAYS_OF_THE_WEEK[7][12] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+
+String getOutputStates() {
+  DateTime now = realTimeClock.now();
+  sensors_event_t humidityEvent, tempEvent;
+  ahtSensor.getEvent(&humidityEvent, &tempEvent);
+  int lightLevelValue = analogRead(LDRPIN);
+
+  String alarmValue = String(alarmTime.hour()) + ":" + (alarmTime.minute() < 10 ? "0" : "") + String(alarmTime.minute());
+  String dateTimeValue = String(DAYS_OF_THE_WEEK[now.dayOfTheWeek()]) + " " + String(now.day()) + "-" + String(now.month()) + "-" + String(now.year());
+
+  String jsonString = "{\"values\":[";
+  jsonString += "{\"Name\":\"Temperature\",\"Value\":";
+  jsonString += String(tempEvent.temperature, 1);
+  jsonString += ",\"Unit\":\"°C\"},";
+  jsonString += "{\"Name\":\"Humidity\",\"Value\":";
+  jsonString += String(humidityEvent.relative_humidity, 1);
+  jsonString += ",\"Unit\":\"%\"},";
+  jsonString += "{\"Name\":\"Light\",\"Value\":";
+  jsonString += String(lightLevelValue);
+  jsonString += ",\"Unit\":\"%\"},";
+  jsonString += "{\"Name\":\"Alarm Time\",\"Value\":\"";
+  jsonString += alarmValue;
+  jsonString += "\",\"Unit\":\"HH:MM\"},";
+  jsonString += "{\"Name\":\"Alarm Active\",\"Value\":\"";
+  jsonString += alarmActive ? "Yes" : "No";
+  jsonString += "\",\"Unit\":\"\"},";
+  jsonString += "{\"Name\":\"Date and Time\",\"Value\":\"";
+  jsonString += dateTimeValue;
+  jsonString += "\",\"Unit\":\"HH:MM\"}";
+  jsonString += "]}";
+
+  return jsonString;
+}
+
+
+///-----WebSocket Notifications-----
+void notifyClients(String state) {
+  ws.textAll(state);
+}
+
+// Handles messages from clidents in the if statements below !!!TO BE UPDATED AFTER HTML!!!
+
+void handleWebSocketMessage(void* arg, uint8_t* data, size_t len) {
+  AwsFrameInfo* info = (AwsFrameInfo*)arg;
+  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+    data[len] = 0;
+    if (strcmp((char*)data, "getStates") == 0) {
+      notifyClients(getOutputStates());
+    }
+  }
+}
+
+
+//-----WebSocket event handler-----
+void onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len) {
+  switch (type) {
+    case WS_EVT_CONNECT:
+      Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+      Serial.print("WebSocket client ");
+      Serial.print(client->id());
+      Serial.print(" connected from ");
+      Serial.println(client->remoteIP().toString().c_str());
+      break;
+    case WS_EVT_DISCONNECT:
+      Serial.printf("WebSocket client #%u disconnected\n", client->id());
+      Serial.print("WebSocket client ");
+      Serial.print(client->id());
+      Serial.println(" disconnected\n");
+      break;
+    case WS_EVT_DATA:
+      handleWebSocketMessage(arg, data, len);
+      break;
+    case WS_EVT_PONG:
+    case WS_EVT_ERROR:
+      break;
+  }
+}
+
+//-----WebSocket setup-----
+void initWebSocket() {
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+  Serial.println("WebSocket initialised");
+}
+
 
 //-----TEMPERATURE SENSOR OBJECTS-----
 Adafruit_AHTX0 ahtSensor; //sensor object for AHT20 Temperature and Humidity sensor
@@ -39,8 +188,9 @@ Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 //-----LIGHT SENSOR PIN-----
 const byte LDRPIN = A4;
 
-//-----BUZZER PIN-----
-const byte BUZZER_PIN = A5;
+//-----BUZZER PIN SETUP-----
+const uint8_t BUZZER_PIN = A5;
+const uint8_t STATUS_LED = LED_BUILTIN;
 
 //-----VARIABLES-----
 // screen phases
@@ -53,12 +203,79 @@ int lastTemp = -100; // Variable to store the last temperature reading
 int lastHumidity = -1; // Variable to store the last humidity reading
 int lastLight = -1; // Variable to store the last light level reading
 
-// buttons/alarm/time
+// buttons/alarm variables
 const long DEBOUNCE_DELAY = 50; // Delay for button debouncing
 bool alarmActive = false; // Variable to track if the alarm is active
 DateTime alarmTime; // Variable to store the alarm time
 unsigned long lastBuzzerToggle = 0; // Variable to store the last time the buzzer state was toggled
 bool buzzerState = false; // Variable to track the current state of the buzzer
+int currentNote = 0;
+unsigned long previousNoteTime = 0;
+
+
+// D Major Scale Frequencies
+#define D4 294
+#define E4 330
+#define FS4 370
+#define G4 392
+#define A4 440
+#define B4 494
+#define CS5 554
+#define D5 587
+#define E5 659
+#define FS5 740
+#define G5 784
+#define A5 880
+#define B5 988
+#define CS6 1109
+#define D6 1175
+
+//----- ALARM MELODY -----
+// Key: D Major
+// Tempo: ~73 BPM
+
+const int melody[] = {
+  294,  // D4
+  330,  // E4
+  370,  // F#4
+  440,  // A4
+  494,  // B4
+  440,  // A4
+  370,  // F#4
+  330,  // E4
+
+  294,  // D4
+  370,  // F#4
+  440,  // A4
+  587,  // D5
+  494,  // B4
+  440,  // A4
+  370,  // F#4
+  294   // D4
+};
+
+const int durations[] = {
+  300,  // D4
+  300,  // E4
+  300,  // F#4
+  450,  // A4
+  450,  // B4
+  300,  // A4
+  300,  // F#4
+  450,  // E4
+
+  300,  // D4
+  300,  // F#4
+  300,  // A4
+  600,  // D5
+  450,  // B4
+  300,  // A4
+  300,  // F#4
+  600   // D4
+};
+
+const size_t notesCount = sizeof(melody) / sizeof(melody[0]);
+const size_t melodyLength = notesCount;
 
 // room lighting/constant lighting thresholds
 int currentLightMode = -1;  // Store the current light mode. -1 means no mode selected yet. 0 = dark, 1 = medium, 2 = bright
@@ -74,14 +291,6 @@ const int COMFORTABLE_THRESHOLD = 25; //below this temperature is considered com
 const int WARM_THRESHOLD = 30; //below this temperature is considered warm
 
 
-//------------- WiFi setup --------------
-//the Wifi status
-//int status = WL_IDLE_STATUS;
-
-//Your network name and password are hidden in the secrets.h file
-const char SSID[] = SECRET_SSID;
-const char PASSWORD[] = SECRET_PASS;
-
 
 //-----FUNCTION PROTOTYPES-----
 void neopixelTemperatureColour();
@@ -89,167 +298,54 @@ void screenPhases();
 void handleButtons();
 void buzzerOutput();
 void flashLED(int delayTimes, int numTimes);
+void playAlarmMelody();
+void buzzerOutput();
 void roomLighting();
 void checkSerialForAlarm();
-void handleWebSocketMessage(void* arg, uint8_t* data, size_t len);
-void onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len);
-void initWebSocket();
-void initLittleFS();
-
-//-----Arrays for the days of the week-----
-const char DAYS_OF_THE_WEEK[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
-
-
-//------------- WebServer setup --------------
-// Create AsyncWebServer object on port 80
-AsyncWebServer server(80);
-// Create a WebSocket object
-AsyncWebSocket ws("/ws");
-
-
-/**
-LittleFS setup - wants to be first method for some reason?
-*/
-void initLittleFS() {
-  if (!LittleFS.begin(true)) {
-    Serial.println("LittleFS failed to setup");
-  } else {
-    Serial.println("LittleFS should be going now");
-  }
-}
-
-/**
-LittleFS reading a file 
-*/
-String readFile(fs::FS& fs, const char* path) {
-  Serial.print("Reading file: ");
-  Serial.println(path);
-  File file = fs.open(path);
-  if (!file || file.isDirectory()) {
-    Serial.println("readFile failed to open file");
-    return String();
-  }
-  String fileContent;
-  while (file.available()) {
-    fileContent = file.readStringUntil('\n');
-    break;
-  }
-  return fileContent;
-}
-
-/**
-LittleFS writing a file
-*/
-void writeFile(fs::FS& fs, const char* path, const char* message) {
-  Serial.print("Writing file: ");
-  Serial.println(path);
-  File file = fs.open(path, FILE_WRITE);
-  if (!file) {
-    Serial.println("writeFile failed to write to file");
-    return;
-  }
-  if (file.print(message)) {
-    Serial.println("- writeFile success");
-  } else {
-    Serial.println("- writeFile failed");
-  }
-}
-
-/**
-set up a JSON array and hold the states of all values we care about
-pins and their current states variables and their current values
-*/
-String getOutputStates() {
-  JSONVar myArray;
-
-  myArray["values"][0]["pinNum"] = String(2);
-  myArray["values"][0]["state"] = String(digitalRead(2));
-
-  myArray["values"][1]["pinNum"] = String(13);
-  myArray["values"][1]["state"] = String(digitalRead(13));
-
-  myArray["values"][2]["r"] = String(red);
-  myArray["values"][2]["g"] = String(green);
-  myArray["values"][2]["b"] = String(blue);
-
-  String jsonString = JSON.stringify(myArray);
-  return jsonString;
-}
-
-/**
-Sends a message to all clients connected to ip address with a JSON message
-*/
-void notifyClients(String state) {
-  ws.textAll(state);
-}
-
-/**
-Handles messages from clients in the if statements below
-*/
-void handleWebSocketMessage(void* arg, uint8_t* data, size_t len) {
-  AwsFrameInfo* info = (AwsFrameInfo*)arg;
-  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-    data[len] = 0;
-    //if message is states send the state of all gpio pins
-    if (strcmp((char*)data, "getStates") == 0) {
-      notifyClients(getOutputStates());
-    } else {
-      //(char*)data should be in this format "rgb(255,87,51)" when it isn't 'getStates'
-      std::string rgb = (char*)data;
-      byte firstComma = rgb.find(',');
-      byte secondComma = rgb.find(',', firstComma + 1);
-      byte lastBracket = rgb.find(')');
-
-      red = stoi(rgb.substr(4, firstComma));
-      green = stoi(rgb.substr(firstComma + 1, secondComma - firstComma - 1));
-      blue = stoi(rgb.substr(secondComma + 1, lastBracket));
-    }
-    //Just to alternate the led on and off to show we can digitalRead and digitalWrite here
-    //digitalWrite(LEDPIN, !digitalRead(LEDPIN)); //AM I AN ISSUE NEED TO TEST--------------------------------------
-  }
-}
-
-/**
-Event listener handles different asyncronous steps from the web socket
-*/
-void onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len) {
-  switch (type) {
-    case WS_EVT_CONNECT:
-      //Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-      Serial.print("WebSocket client ");
-      Serial.print(client->id());
-      Serial.print(" connected from ");
-      Serial.println(client->remoteIP().toString().c_str());
-      break;
-    case WS_EVT_DISCONNECT:
-      //Serial.printf("WebSocket client #%u disconnected\n", client->id());
-      Serial.print("WebSocket client ");
-      Serial.print(client->id());
-      Serial.println(" disconnected\n");
-      break;
-    case WS_EVT_DATA:
-      handleWebSocketMessage(arg, data, len);
-      break;
-    case WS_EVT_PONG:
-    case WS_EVT_ERROR:
-      break;
-  }
-}
-
-
-/**
-WebSocket setup
-What to do when an event happens on the ws socket and adding a handler to the server
-*/
-void initWebSocket() {
-  ws.onEvent(onEvent);
-  server.addHandler(&ws);
-  Serial.println("websocket should be running now");
-}
+void extremeTemperatureAlert(int delayTimes, int numTimes);
 
 
 //-----SETUP-----
 void setup() {
+  // startup beep
+  tone(BUZZER_PIN, 1000);
+  delay(100);
+  tone(BUZZER_PIN, 1000);
+  noTone(BUZZER_PIN);
+  
+  // WiFi setup 
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(SSID, PASSWORD);
+  Serial.print("Trying to connect WiFi ");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+  Serial.println(".");
+  if (WL_CONNECTED == true) {
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("Issues showing the IP address");
+  }
+  Serial.println("WiFi should be going now");
+
+  //LittleFS setup
+  initLittleFS();
+
+  //webSocket setup
+  initWebSocket();
+
+  //Web Server setup
+
+  // Web Server Root URL
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(LittleFS, "/index.html", "text/html", false);
+  });
+  server.serveStatic("/", LittleFS, "/");
+
+  server.begin();
+  Serial.println("webserver should be running now");
+
   //Initialize Serial Monitor
   Serial.begin(115200);
   while (!Serial); //Wait for Serial Monitor to open
@@ -305,72 +401,31 @@ void setup() {
   }
 
   // When time needs to be re-set on a previously configured device, the following line sets the RTC to the date & time this sketch was compiled
-  realTimeClock.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  //realTimeClock.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
-  /* CHANGES FROM SERIAL MONITOR TO WEB INTERFACE */
-
-  // //Ask user to set alarm time via Serial Monitor
-  // Serial.println("-------------------------------------------------");
-  // Serial.println("Smart Room Clock ready ✅");
-  // Serial.println("To set an alarm, type time in HH:MM (24-hour).");
-  // Serial.println("Feel free to change the alarm at anytime using the Serial Monitor.");
-  // Serial.println("Example: 07:30 or 21:45");
-  // Serial.println("-------------------------------------------------");
-
-  //----------- WiFi setup ------------
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, PASSWORD);
-  Serial.print("Trying to connect WiFi ");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.print(".");
-  }
-  Serial.println(".");
-  if (WL_CONNECTED == true) {
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("Issues showing the IP address");
-  }
-  Serial.println("WiFi should be going now");
-
-  //----------- LittleFS setup ------------
-  initLittleFS();
-
-  //----------- webSocket setup ------------
-  initWebSocket();
-
-  //------------- Web Server setup --------------
-  // Web Server Root URL
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(LittleFS, "/index.html", "text/html", false);
-  });
-  server.serveStatic("/", LittleFS, "/");
-
-  server.begin();
-  Serial.println("webserver should be running now");
-
-  ////------------- Startup Beep -------------
-  tone(BUZZER_PIN, 1000);
-  delay(150);
-  noTone(BUZZER_PIN);
+  //Ask user to set alarm time via Serial Monitor
+  Serial.println("-------------------------------------------------");
+  Serial.println("Smart Room Clock ready ✅");
+  Serial.println("To set an alarm, type time in HH:MM (24-hour).");
+  Serial.println("Feel free to change the alarm at anytime using the Serial Monitor.");
+  Serial.println("Example: 07:30 or 21:45");
+  Serial.println("-------------------------------------------------");
 
 }
 
 //-----MAIN LOOP-----
 void loop() {
+  //frees up memory by refreshing the list of clients connected
+  ws.cleanupClients();
+  delay(1000); //slows things down for button clicks but stops flickering screen
+  notifyClients(getOutputStates()); // Send the current states to the webpage
   neopixelTemperatureColour(); // Set NeoPixel colour based on temperature
   screenPhases(); // Update screen based on current mode
   handleButtons(); // Check for button presses and handle accordingly
   roomLighting(); // Update room lighting based on LDR reading
+  playAlarmMelody(); // Play alarm melody if alarm is active
   buzzerOutput(); // Control buzzer output based on alarm
   checkSerialForAlarm(); // Check for alarms in the serial input
-  initWebSocket(); // Handle WebSocket events and messages
-  handleWebSocketMessage(); // Handle incoming WebSocket messages
-  notifyClients(getOutputStates()); // Send current states to all WebSocket clients
-  writeFile(LittleFS, "/test.txt", "Hello, LittleFS!"); // Test writing to LittleFS
-  initLittleFS(); // Test initializing LittleFS
-  onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len); // Test WebSocket event handling
-  
 
   DateTime now = realTimeClock.now(); // Get current time
 
@@ -401,16 +456,7 @@ void loop() {
     needsRefresh = false; //reset needsRefresh flag
   }
 
-  //frees up memory by refreshing the list of clients connected
-  ws.cleanupClients();
-  delay(1000); //slows things down for button clicks but stops flickering screen
-
-  //seems to spam the webpage with the states so like the serial monitor
-  //give it a delay to slow this traffic down?
-  //picks up button click real quick though :)
-  notifyClients(getOutputStates()); //AM I AN ISSUE NEED TO TEST--------------------------------------
-
-  delay(500); // Delay to prevent excessive CPU usage
+  delay(200); // Delay to prevent excessive CPU usage
 }
 
 
@@ -426,7 +472,8 @@ void neopixelTemperatureColour() {
   // Set NeoPixel colour based on temperature
   if (tempInt < COLD_THRESHOLD) { //if temperature is below cold threshold, set to blue
     pixels.setPixelColor(0, pixels.Color(0, 0, 255)); 
-    flashLED(500, 5); //flash LED 5 times with 500ms delay
+    extremeTemperatureAlert(500,5); //flash LED and beep buzzer 5 times with 500ms delay
+    Serial.println(" ⚠️ Extreme COLD Temperature Detected!"); //print to serial monitor
   } else if (tempInt >= COLD_THRESHOLD && tempInt < COOL_THRESHOLD) { //if temperature is below cool threshold, set to light blue
     pixels.setPixelColor(0, pixels.Color(173, 216, 230)); 
   } else if (tempInt >= COOL_THRESHOLD && tempInt < COMFORTABLE_THRESHOLD) { //if temperature is below comfortable threshold, set to green
@@ -435,7 +482,8 @@ void neopixelTemperatureColour() {
     pixels.setPixelColor(0, pixels.Color(255, 255, 0)); 
   } else { //if temperature is above warm threshold, set to red
     pixels.setPixelColor(0, pixels.Color(255, 0, 0)); 
-    flashLED(500, 5); //flash LED 5 times with 500ms delay
+    extremeTemperatureAlert(500,5); //flash LED and beep buzzer 5 times with 500ms delay
+    Serial.println(" ⚠️ Extreme HOT Temperature Detected!"); //print to serial monitor
   }
   pixels.show(); // Update NeoPixel with new colour
 }
@@ -452,10 +500,10 @@ void screenPhases() {
     tftClockScreenDisplay.setCursor(43, 40);
     tftClockScreenDisplay.printf("%02d:%02d", now.hour(), now.minute()); //display time in HH:MM format
 
-    // DATE (e.g., Tue, 21-10-2025)
+    // DATE (format: TUE 21-10-2025)
     tftClockScreenDisplay.setTextSize(2);
     String dayName = DAYS_OF_THE_WEEK[now.dayOfTheWeek()];
-    tftClockScreenDisplay.setCursor(13, 100);
+    tftClockScreenDisplay.setCursor(35, 95);
     tftClockScreenDisplay.printf("%s %02d-%02d-%04d", dayName.c_str(), now.day(), now.month(), now.year()); //display date in Day, DD-MM-YYYY format
 
   } else if (currentScreenPhase == 1) { //---PHASE 2: LIGHTING and TEMPERATURE and HUMIDITY---
@@ -511,7 +559,7 @@ void screenPhases() {
 
     // TEMP + COMFORT
     tftClockScreenDisplay.setTextSize(2);
-    tftClockScreenDisplay.setCursor(sectionWidth * 1 + 15, 20);
+    tftClockScreenDisplay.setCursor(sectionWidth * 1 + 18, 20);
     tftClockScreenDisplay.println("TEMP");
     tftClockScreenDisplay.setTextSize(2);
     tftClockScreenDisplay.setCursor(sectionWidth * 1 + 18, 70);
@@ -562,37 +610,58 @@ void handleButtons() {
   }
 }
 
+//-----ALARM MELODY PLAYBACK-----
+void playAlarmMelody() {
+  for (size_t i = 0; i < notesCount; i++) {
+    if (!alarmActive) return;
+
+    tone(BUZZER_PIN, melody[i], durations[i]);
+    delay(durations[i] + 40);
+  }
+
+  noTone(BUZZER_PIN);
+}
 
 //-----BUZZER OUTPUT-----
 void buzzerOutput() {
   DateTime now = realTimeClock.now();
-  if (now.hour() == alarmTime.hour() && now.minute() == alarmTime.minute() && now.second() == 0) { //if current time matches alarm time
-    alarmActive = true; // Activate buzzer
+
+  if (now.hour() == alarmTime.hour() &&
+      now.minute() == alarmTime.minute() &&
+      now.second() <= 2 &&
+      !alarmActive) {
+
+    alarmActive = true;
   }
 
-  if (alarmActive) { // If alarm is active, make the buzzer pulse
-    unsigned long currentMillis = millis();
+  while (alarmActive) {
 
-    // Toggle buzzer state every 150 milliseconds
-    if (currentMillis - lastBuzzerToggle >= 150) {
-      lastBuzzerToggle = currentMillis; // Update last toggle time
-      buzzerState = !buzzerState; // Toggle buzzer on/off
-      digitalWrite(BUZZER_PIN, buzzerState ? HIGH : LOW); // Turn on/off buzzer to simulate pulsing
+    playAlarmMelody();
+
+    if (digitalRead(BUTTOND0) == LOW) {
+      alarmActive = false;
+      noTone(BUZZER_PIN);
+      break;
     }
-  } else {
-    // Turn off buzzer when alarm is deactivated
-    digitalWrite(BUZZER_PIN, LOW);
-    buzzerState = false;
   }
 }
 
-//-----LED FLASHING OUTPUT-----
-void flashLED(int delayLEDTimes, int numLEDTimes) { //delayLEDTimes = time in milliseconds, numLEDTimes = number of flashes
-  for (int i = 0; i < numLEDTimes; i++) {
-    digitalWrite(RLEDPIN, HIGH); //turn on LED
-    delay(delayLEDTimes); //wait for delay time
-    digitalWrite(RLEDPIN, LOW); //turn off LED
-    delay(delayLEDTimes); //wait for delay time
+//-----FLASH LED AND BUZZER ALERT FOR EXTREME TEMPERATURES-----
+void extremeTemperatureAlert(int delayTime, int numTimes) {
+
+  for (int i = 0; i < numTimes; i++) {
+
+    // LED ON + buzzer ON
+    digitalWrite(RLEDPIN, HIGH);
+    tone(BUZZER_PIN, 1000);
+
+    delay(delayTime);
+
+    // LED OFF + buzzer OFF
+    digitalWrite(RLEDPIN, LOW);
+    noTone(BUZZER_PIN);
+
+    delay(delayTime);
   }
 }
 
