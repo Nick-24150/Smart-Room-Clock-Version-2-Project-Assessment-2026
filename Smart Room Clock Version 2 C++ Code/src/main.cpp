@@ -73,6 +73,7 @@ void writingFile(fs::FS& fs, const char* path, const char* message) {
   }
 }
 
+//HAN COMMENT I would put these extern and const objects and variables up with the others around line 20
 /**
 set up a JSON array and hold the states of all values we care about
 pins and their current states variables and their current values
@@ -83,6 +84,7 @@ extern bool alarmActive;
 extern DateTime alarmTime;
 const char DAYS_OF_THE_WEEK[7][12] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 
+//HAN COMMENT what does this code do?
 String getOutputStates() {
   DateTime now = realTimeClock.now();
   sensors_event_t humidityEvent, tempEvent;
@@ -123,7 +125,6 @@ void notifyClients(String state) {
 }
 
 // Handles messages from clidents in the if statements below !!!TO BE UPDATED AFTER HTML!!!
-
 void handleWebSocketMessage(void* arg, uint8_t* data, size_t len) {
   AwsFrameInfo* info = (AwsFrameInfo*)arg;
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
@@ -167,7 +168,7 @@ void initWebSocket() {
   Serial.println("WebSocket initialised");
 }
 
-
+//HAN COMMENT again I would swap these to around line 20 so all the object and variable setup is up the top (all the way to line 293)
 //-----TEMPERATURE SENSOR OBJECTS-----
 Adafruit_AHTX0 ahtSensor; //sensor object for AHT20 Temperature and Humidity sensor
 //Adafruit_BMP280 bmp; //(OPTIONAL) sensor object for BMP280 Pressure and Altitude sensor
@@ -305,7 +306,7 @@ void checkSerialForAlarm();
 void extremeTemperatureAlert(int delayTimes, int numTimes);
 
 
-//-----SETUP-----
+//-----SETUP----- //HAN COMMENT what does this code do? just a sets up x, y, and z
 void setup() {
   // startup beep
   tone(BUZZER_PIN, 1000);
