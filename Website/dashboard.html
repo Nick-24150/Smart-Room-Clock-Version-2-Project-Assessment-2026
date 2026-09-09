@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Room Clock - Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet"> 
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>SMART ROOM CLOCK</h1>
+      <p>Dashboard Page</p>
+    </div>
+    <nav>
+      <a class="active" href="dashboard.html">Dashboard</a>
+      <a href="settings.html">Settings</a>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <section class="sensor-card graph-card">
+      <div class="card-title">
+        <h2>LIGHTING</h2>
+        <span id="lightMode" class="status-badge">MEDIUM</span>
+      </div>
+      <canvas id="lightChart"></canvas>
+      <div class="chart-footer">
+        <span>Current: <b id="lightValue">0</b></span>
+        <span>Room light level</span>
+      </div>
+    </section>
+
+    <section class="sensor-card graph-card">
+      <div class="card-title">
+        <h2>TEMPERATURE</h2>
+        <span id="comfortMode" class="status-badge">COMFORTABLE</span>
+      </div>
+      <canvas id="tempChart"></canvas>
+      <div class="chart-footer">
+        <span>Current: <b id="tempValue">0°C</b></span>
+        <span id="tempRange">--</span>
+      </div>
+    </section>
+
+    <section class="sensor-card humidity-card">
+      <div class="card-title">
+        <h2>HUMIDITY</h2>
+      </div>
+      <div class="humidity-value" id="humidityValue">60%</div>
+      <div class="humidity-bar">
+        <div id="humidityFill"></div>
+      </div>
+      <p>Relative humidity</p>
+    </section>
+
+    <section class="info-card datetime-card">
+      <h2>DATE</h2>
+      <div id="dateDisplay" class="date-display">--</div>
+      <h2>TIME</h2>
+      <div id="timeDisplay" class="time-display">--:--:--</div>
+    </section>
+
+    <section class="info-card alarms-card">
+      <div class="card-title">
+        <h2>ALARMS</h2>
+        <a class="small-button" href="settings.html">Manage</a>
+      </div>
+      <div id="dashboardAlarms" class="alarm-list"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span>&copy; Smart Room Clock 2026 - Nick Nguyen</span>
+    <span id="connectionStatus">Sensor Data</span>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    initDashboard();
+  </script>
+</body>
+</html>

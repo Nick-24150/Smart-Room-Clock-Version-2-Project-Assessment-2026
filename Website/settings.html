@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Room Clock - Settings</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet"> 
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>SMART ROOM CLOCK</h1>
+      <p>Settings Page</p>
+    </div>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a class="active" href="settings.html">Settings</a>
+    </nav>
+  </header>
+
+  <main class="settings-page">
+
+    <section class="settings-card">
+      <div class="card-title">
+        <h2>DISPLAY SETTINGS</h2>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <h3>Brightness mode</h3>
+          <p>This controls the brightness/theme of this web interface only. <br> It does not change the physical TFT.</p>
+        </div>
+        <div class="radio-group">
+          <label><input type="radio" name="brightness" value="dark"> Dark</label>
+          <label><input type="radio" name="brightness" value="medium"> Medium</label>
+          <label><input type="radio" name="brightness" value="bright"> Bright</label>
+          <label><input type="radio" name="brightness" value="auto" checked> Auto</label>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <h3>Colour settings</h3>
+          <p>These settings control the appearance of the clock display.</p>
+        </div>
+      <div class="colour-grid">
+        <label>
+          Clock background colour
+          <input type="color" id="backgroundColor" value="#000000">
+          <small>Changes the background of the ESP32 TFT.</small>
+        </label>
+        <label>
+          Clock text colour
+          <input type="color" id="textColor" value="#ffffff">
+          <small>Changes the text colour of the ESP32 TFT.</small>
+        </label>
+      </div></div>
+      <div>
+        <button class="primary-button" onclick="saveDisplaySettings()">Save &amp; Update</button>
+      </div>
+      
+      
+      <p id="displayMessage" class="muted"></p>
+    </section>
+
+    <section class="settings-card">
+      <div class="card-title">
+        <h2>ALARM SETTINGS</h2>
+        <span class="muted">Add, update or remove alarms</span>
+      </div>
+
+      <form id="alarmForm" class="alarm-form">
+        <input type="hidden" id="editingAlarmId">
+
+        <label>
+          Alarm name
+          <input id="alarmName" type="text" placeholder="e.g. Wake up" required>
+        </label>
+
+        <label>
+          Time
+          <input id="alarmTime" type="time" required>
+        </label>
+
+        <label>
+          Days
+          <select id="alarmDays" multiple required>
+            <option value="Mon">Mon</option>
+            <option value="Tue">Tue</option>
+            <option value="Wed">Wed</option>
+            <option value="Thu">Thu</option>
+            <option value="Fri">Fri</option>
+            <option value="Sat">Sat</option>
+            <option value="Sun">Sun</option>
+          </select>
+        </label>
+
+        <div class="form-actions">
+          <button class="primary-button" type="submit">Save alarm</button>
+          <button class="secondary-button" type="button" onclick="resetAlarmForm()">Clear</button>
+        </div>
+      </form>
+
+      <div id="settingsAlarmList" class="settings-alarm-list"></div>
+    </section>
+
+    <section class="settings-card">
+      <div class="card-title">
+        <h2>ESP32 CONNECTION</h2>
+      </div>
+      <p>
+        These controls are ready for connection to the ESP32 web server.
+        The current version stores settings in the browser and sends clock display settings to the ESP32 when an address is configured.
+      </p>
+      <div class="connection-grid">
+        <label>
+          ESP32 address
+          <input id="espAddress" type="text" placeholder="http://192.168.1.100">
+        </label>
+        <button class="secondary-button" onclick="saveESPAddress()">Save address</button>
+      </div>
+      <p id="espMessage" class="muted"></p>
+    </section>
+
+  </main>
+
+  <footer>
+    <span>&copy; Smart Room Clock 2026 - Nick Nguyen</span>
+    <a href="dashboard.html">Back to Dashboard</a>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    initSettings();
+  </script>
+</body>
+</html>

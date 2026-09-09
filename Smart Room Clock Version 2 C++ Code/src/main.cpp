@@ -216,24 +216,23 @@ unsigned long previousNoteTime = 0;
 // D Major Scale Frequencies
 #define D4 294
 #define E4 330
-#define FS4 370
+#define Fsharp4 370
 #define G4 392
 #define A4 440
 #define B4 494
-#define CS5 554
+#define Csharp5 554
 #define D5 587
 #define E5 659
-#define FS5 740
+#define Fsharp5 740
 #define G5 784
 #define A5 880
 #define B5 988
-#define CS6 1109
+#define Csharp6 1109
 #define D6 1175
 
-//----- ALARM MELODY -----
-// Key: D Major
-// Tempo: ~73 BPM
+// Alarm Melody (D Major Scale) - "D Major Alarm"
 
+//Melody tune
 const int melody[] = {
   294,  // D4
   330,  // E4
@@ -254,6 +253,7 @@ const int melody[] = {
   294   // D4
 };
 
+//Melody durations/rhythms (in milliseconds)
 const int durations[] = {
   300,  // D4
   300,  // E4
@@ -473,7 +473,7 @@ void neopixelTemperatureColour() {
   if (tempInt < COLD_THRESHOLD) { //if temperature is below cold threshold, set to blue
     pixels.setPixelColor(0, pixels.Color(0, 0, 255)); 
     extremeTemperatureAlert(500,5); //flash LED and beep buzzer 5 times with 500ms delay
-    Serial.println(" ⚠️ Extreme COLD Temperature Detected!"); //print to serial monitor
+    Serial.println(" ⚠️  Extreme COLD Temperature Detected!"); //print to serial monitor
   } else if (tempInt >= COLD_THRESHOLD && tempInt < COOL_THRESHOLD) { //if temperature is below cool threshold, set to light blue
     pixels.setPixelColor(0, pixels.Color(173, 216, 230)); 
   } else if (tempInt >= COOL_THRESHOLD && tempInt < COMFORTABLE_THRESHOLD) { //if temperature is below comfortable threshold, set to green
@@ -483,7 +483,7 @@ void neopixelTemperatureColour() {
   } else { //if temperature is above warm threshold, set to red
     pixels.setPixelColor(0, pixels.Color(255, 0, 0)); 
     extremeTemperatureAlert(500,5); //flash LED and beep buzzer 5 times with 500ms delay
-    Serial.println(" ⚠️ Extreme HOT Temperature Detected!"); //print to serial monitor
+    Serial.println(" ⚠️  Extreme HOT Temperature Detected!"); //print to serial monitor
   }
   pixels.show(); // Update NeoPixel with new colour
 }
@@ -612,20 +612,21 @@ void handleButtons() {
 
 //-----ALARM MELODY PLAYBACK-----
 void playAlarmMelody() {
+  // Play the alarm melody if the alarm is active
   for (size_t i = 0; i < notesCount; i++) {
     if (!alarmActive) return;
 
     tone(BUZZER_PIN, melody[i], durations[i]);
     delay(durations[i] + 40);
   }
-
+  // Stop the buzzer after playing the melody
   noTone(BUZZER_PIN);
 }
 
 //-----BUZZER OUTPUT-----
 void buzzerOutput() {
   DateTime now = realTimeClock.now();
-
+  // Check if the current time matches the alarm time and the alarm is not already active
   if (now.hour() == alarmTime.hour() &&
       now.minute() == alarmTime.minute() &&
       now.second() <= 2 &&
@@ -633,7 +634,7 @@ void buzzerOutput() {
 
     alarmActive = true;
   }
-
+  // If the alarm is active, play the alarm melody and check for button press to stop it
   while (alarmActive) {
 
     playAlarmMelody();
