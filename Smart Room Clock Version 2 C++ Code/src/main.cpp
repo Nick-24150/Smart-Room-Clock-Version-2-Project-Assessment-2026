@@ -19,6 +19,133 @@
 //the Wifi status
 //int status = WL_IDLE_STATUS;
 
+//-----TEMPERATURE SENSOR OBJECTS-----
+extern Adafruit_AHTX0 ahtSensor; //sensor object for AHT20 Temperature and Humidity sensor
+//Adafruit_BMP280 bmp; //(OPTIONAL) sensor object for BMP280 Pressure and Altitude sensor
+
+//-----TFT SCREEN SET UP-----
+Adafruit_ST7789 tftClockScreenDisplay = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST); //TFT screen to display outputs
+
+//-----NEOPIXEL AND LED SET UP-----
+const byte RLEDPIN = LED_BUILTIN;
+#define PIN_NEOPIXEL 33
+Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
+
+//-----BUTTON PINS-----
+#define BUTTOND0 0 //Time and Date Phase + Alarm Stop
+#define BUTTOND1 1 //Lighting/Temperature/Humidity Phase
+#define BUTTOND2 2 //Alarm Phase
+
+//-----LIGHT SENSOR PIN-----
+const byte LDRPIN = A4;
+extern const byte LDRPIN;
+
+//-----BUZZER PIN SETUP-----
+const uint8_t BUZZER_PIN = A5;
+const uint8_t STATUS_LED = LED_BUILTIN;
+
+//-----VARIABLES-----
+// screen phases
+int currentScreenPhase = 0; // 0 = time/date, 1 = lighting/temp/humidity, 2 = alarm
+int lastScreenPhase = -1; // Variable to store the last phase. -1 means no phase selected yet
+
+// last sensors/compenents readings
+int lastMinute = -1; // Variable to store the last minute value
+int lastTemp = -100; // Variable to store the last temperature reading
+int lastHumidity = -1; // Variable to store the last humidity reading
+int lastLight = -1; // Variable to store the last light level reading
+
+// buttons/alarm variables
+const long DEBOUNCE_DELAY = 50; // Delay for button debouncing
+extern bool alarmActive; // Variable to track if the alarm is active
+extern DateTime alarmTime; // Variable to store the alarm time
+unsigned long lastBuzzerToggle = 0; // Variable to store the last time the buzzer state was toggled
+bool buzzerState = false; // Variable to track the current state of the buzzer
+int currentNote = 0; // Variable to track the current note being played in the melody
+unsigned long previousNoteTime = 0; // Variable to store the time when the last note was played
+
+//-----DAYS OF THE WEEK-----
+const char DAYS_OF_THE_WEEK[7][12] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+
+
+// D Major Scale Frequencies
+#define D4 294
+#define E4 330
+#define Fsharp4 370
+#define G4 392
+#define A4 440
+#define B4 494
+#define Csharp5 554
+#define D5 587
+#define E5 659
+#define Fsharp5 740
+#define G5 784
+#define A5 880
+#define B5 988
+#define Csharp6 1109
+#define D6 1175
+
+// Alarm Melody (D Major Scale) - "D Major Alarm"
+
+//Melody tune
+const int melody[] = {
+  294,  // D4
+  330,  // E4
+  370,  // F#4
+  440,  // A4
+  494,  // B4
+  440,  // A4
+  370,  // F#4
+  330,  // E4
+
+  294,  // D4
+  370,  // F#4
+  440,  // A4
+  587,  // D5
+  494,  // B4
+  440,  // A4
+  370,  // F#4
+  294   // D4
+};
+
+//Melody durations/rhythms (in milliseconds)
+const int durations[] = {
+  300,  // D4
+  300,  // E4
+  300,  // F#4
+  450,  // A4
+  450,  // B4
+  300,  // A4
+  300,  // F#4
+  450,  // E4
+
+  300,  // D4
+  300,  // F#4
+  300,  // A4
+  600,  // D5
+  450,  // B4
+  300,  // A4
+  300,  // F#4
+  600   // D4
+};
+
+const size_t notesCount = sizeof(melody) / sizeof(melody[0]);
+const size_t melodyLength = notesCount;
+
+// room lighting/constant lighting thresholds
+int currentLightMode = -1;  // Store the current light mode. -1 means no mode selected yet. 0 = dark, 1 = medium, 2 = bright
+int lastLightMode = -1; // Remember the last light mode. -1 means no mode selected yet
+bool needsRefresh = true; // Flag to indicate if the screen needs to be refreshed
+const int DARK_THRESHOLD = 400; //below this value is considered dark
+const int BRIGHT_THRESHOLD = 2200; //above this value is considered bright
+
+// temperature thresholds 
+const int COLD_THRESHOLD = 10; //below this temperature is considered cold
+const int COOL_THRESHOLD = 20; //below this temperature is considered cool
+const int COMFORTABLE_THRESHOLD = 25; //below this temperature is considered comfortable
+const int WARM_THRESHOLD = 30; //below this temperature is considered warm
+
+
 //Your network name and password are hidden in the secrets.h file
 const char SSID[] = SECRET_SSID;
 const char PASSWORD[] = SECRET_PASS;
@@ -73,18 +200,12 @@ void writingFile(fs::FS& fs, const char* path, const char* message) {
   }
 }
 
-//HAN COMMENT I would put these extern and const objects and variables up with the others around line 20
 /**
 set up a JSON array and hold the states of all values we care about
 pins and their current states variables and their current values
 */
-extern Adafruit_AHTX0 ahtSensor;
-extern const byte LDRPIN;
-extern bool alarmActive;
-extern DateTime alarmTime;
-const char DAYS_OF_THE_WEEK[7][12] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 
-//HAN COMMENT what does this code do?
+//-----GETTING OUTPUT STATES-----
 String getOutputStates() {
   DateTime now = realTimeClock.now();
   sensors_event_t humidityEvent, tempEvent;
@@ -168,128 +289,6 @@ void initWebSocket() {
   Serial.println("WebSocket initialised");
 }
 
-//HAN COMMENT again I would swap these to around line 20 so all the object and variable setup is up the top (all the way to line 293)
-//-----TEMPERATURE SENSOR OBJECTS-----
-Adafruit_AHTX0 ahtSensor; //sensor object for AHT20 Temperature and Humidity sensor
-//Adafruit_BMP280 bmp; //(OPTIONAL) sensor object for BMP280 Pressure and Altitude sensor
-
-//-----TFT SCREEN SET UP-----
-Adafruit_ST7789 tftClockScreenDisplay = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST); //TFT screen to display outputs
-
-//-----NEOPIXEL AND LED SET UP-----
-const byte RLEDPIN = LED_BUILTIN;
-#define PIN_NEOPIXEL 33
-Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
-
-//-----BUTTON PINS-----
-#define BUTTOND0 0 //Time and Date Phase + Alarm Stop
-#define BUTTOND1 1 //Lighting/Temperature/Humidity Phase
-#define BUTTOND2 2 //Alarm Phase
-
-//-----LIGHT SENSOR PIN-----
-const byte LDRPIN = A4;
-
-//-----BUZZER PIN SETUP-----
-const uint8_t BUZZER_PIN = A5;
-const uint8_t STATUS_LED = LED_BUILTIN;
-
-//-----VARIABLES-----
-// screen phases
-int currentScreenPhase = 0; // 0 = time/date, 1 = lighting/temp/humidity, 2 = alarm
-int lastScreenPhase = -1; // Variable to store the last phase. -1 means no phase selected yet
-
-// last sensors/compenents readings
-int lastMinute = -1; // Variable to store the last minute value
-int lastTemp = -100; // Variable to store the last temperature reading
-int lastHumidity = -1; // Variable to store the last humidity reading
-int lastLight = -1; // Variable to store the last light level reading
-
-// buttons/alarm variables
-const long DEBOUNCE_DELAY = 50; // Delay for button debouncing
-bool alarmActive = false; // Variable to track if the alarm is active
-DateTime alarmTime; // Variable to store the alarm time
-unsigned long lastBuzzerToggle = 0; // Variable to store the last time the buzzer state was toggled
-bool buzzerState = false; // Variable to track the current state of the buzzer
-int currentNote = 0;
-unsigned long previousNoteTime = 0;
-
-
-// D Major Scale Frequencies
-#define D4 294
-#define E4 330
-#define Fsharp4 370
-#define G4 392
-#define A4 440
-#define B4 494
-#define Csharp5 554
-#define D5 587
-#define E5 659
-#define Fsharp5 740
-#define G5 784
-#define A5 880
-#define B5 988
-#define Csharp6 1109
-#define D6 1175
-
-// Alarm Melody (D Major Scale) - "D Major Alarm"
-
-//Melody tune
-const int melody[] = {
-  294,  // D4
-  330,  // E4
-  370,  // F#4
-  440,  // A4
-  494,  // B4
-  440,  // A4
-  370,  // F#4
-  330,  // E4
-
-  294,  // D4
-  370,  // F#4
-  440,  // A4
-  587,  // D5
-  494,  // B4
-  440,  // A4
-  370,  // F#4
-  294   // D4
-};
-
-//Melody durations/rhythms (in milliseconds)
-const int durations[] = {
-  300,  // D4
-  300,  // E4
-  300,  // F#4
-  450,  // A4
-  450,  // B4
-  300,  // A4
-  300,  // F#4
-  450,  // E4
-
-  300,  // D4
-  300,  // F#4
-  300,  // A4
-  600,  // D5
-  450,  // B4
-  300,  // A4
-  300,  // F#4
-  600   // D4
-};
-
-const size_t notesCount = sizeof(melody) / sizeof(melody[0]);
-const size_t melodyLength = notesCount;
-
-// room lighting/constant lighting thresholds
-int currentLightMode = -1;  // Store the current light mode. -1 means no mode selected yet. 0 = dark, 1 = medium, 2 = bright
-int lastLightMode = -1; // Remember the last light mode. -1 means no mode selected yet
-bool needsRefresh = true; // Flag to indicate if the screen needs to be refreshed
-const int DARK_THRESHOLD = 400; //below this value is considered dark
-const int BRIGHT_THRESHOLD = 2200; //above this value is considered bright
-
-// temperature thresholds 
-const int COLD_THRESHOLD = 10; //below this temperature is considered cold
-const int COOL_THRESHOLD = 20; //below this temperature is considered cool
-const int COMFORTABLE_THRESHOLD = 25; //below this temperature is considered comfortable
-const int WARM_THRESHOLD = 30; //below this temperature is considered warm
 
 
 
@@ -306,7 +305,7 @@ void checkSerialForAlarm();
 void extremeTemperatureAlert(int delayTimes, int numTimes);
 
 
-//-----SETUP----- //HAN COMMENT what does this code do? just a sets up x, y, and z
+//-----ESP/CLOCK SETUP----- 
 void setup() {
   // startup beep
   tone(BUZZER_PIN, 1000);
