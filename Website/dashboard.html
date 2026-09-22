@@ -1,86 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Initial HTML Setup -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart Room Clock - Dashboard</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>Smart Room Clock - Dashboard</title> <!-- Title of the page - Dashboard Page -->
+  <link rel="stylesheet" href="styles.css"> <!-- Font Styles taken from Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet"> 
 </head>
+
+
+<!-- Overall Structure of the Dashboard Page -->
 <body>
+  <!-- Header Section -->
   <header class="topbar">
     <div>
+      <!-- Website Title with Subheading -->
       <h1>SMART ROOM CLOCK</h1>
       <p>Dashboard Page</p>
     </div>
+    <!-- Navigation Links -->
     <nav>
-      <a class="active" href="dashboard.html">Dashboard</a>
-      <a href="settings.html">Settings</a>
+      <a class="active" href="dashboard.html">Dashboard</a> <!-- Active link for the current page -->
+      <a href="settings.html">Settings</a> <!-- Link to the settings page -->
     </nav>
   </header>
 
+  <!-- Main Dashboard Content -->
   <main class="dashboard">
+    <!-- Sensor Cards -->
     <section class="sensor-card graph-card">
       <div class="card-title">
+        <!-- Card Title - Lighting -->
         <h2>LIGHTING</h2>
         <span id="lightMode" class="status-badge">MEDIUM</span>
       </div>
-      <canvas id="lightChart"></canvas>
-      <div class="chart-footer">
-        <span>Current: <b id="lightValue">0</b></span>
-        <span>Room light level</span>
+      <canvas id="lightChart"></canvas> <!-- Chart Container for Lighting Data (Line Graph) -->
+      <div class="chart-footer"> <!-- Footer for the chart displaying current light value and label -->
+        <span>Current: <b id="lightValue">0</b></span> <!-- Displays the current light value -->
+        <span>Room light level</span> <!-- Label for the chart footer -->
       </div>
     </section>
 
     <section class="sensor-card graph-card">
       <div class="card-title">
+        <!-- Card Title - Temperature -->
         <h2>TEMPERATURE</h2>
         <span id="comfortMode" class="status-badge">COMFORTABLE</span>
       </div>
-      <canvas id="tempChart"></canvas>
-      <div class="chart-footer">
-        <span>Current: <b id="tempValue">0°C</b></span>
-        <span id="tempRange">--</span>
+      <canvas id="tempChart"></canvas> <!-- Chart Container for Temperature Data (Line Graph) -->
+      <div class="chart-footer"> <!-- Footer for the chart displaying current temperature value and label -->
+        <span>Current: <b id="tempValue">0°C</b></span> <!-- Displays the current temperature value -->
+        <span id="tempRange">--</span> <!-- Label for the chart footer -->
       </div>
     </section>
 
     <section class="sensor-card humidity-card">
       <div class="card-title">
+        <!-- Card Title - Humidity -->
         <h2>HUMIDITY</h2>
       </div>
-      <div class="humidity-value" id="humidityValue">60%</div>
-      <div class="humidity-bar">
-        <div id="humidityFill"></div>
+      <div class="humidity-value" id="humidityValue">60%</div> <!-- Displays the current humidity value -->
+      <div class="humidity-bar"> <!-- Humidity bar container -->
+        <div id="humidityFill"></div> <!-- Fill element for the humidity bar, dynamically adjusted based on humidity value -->
       </div>
-      <p>Relative humidity</p>
+      <p>Relative humidity</p> <!-- Label for the humidity bar -->
     </section>
 
+    <!-- Info Cards -->
     <section class="info-card datetime-card">
+      <!-- Card Title - Date and Time -->
       <h2>DATE</h2>
-      <div id="dateDisplay" class="date-display">--</div>
+      <div id="dateDisplay" class="date-display">--</div> <!-- Displays the current date -->
       <h2>TIME</h2>
-      <div id="timeDisplay" class="time-display">--:--:--</div>
+      <div id="timeDisplay" class="time-display">--:--:--</div> <!-- Displays the current time -->
     </section>
 
     <section class="info-card alarms-card">
+      <!-- Card Title - Alarms -->
       <div class="card-title">
         <h2>ALARMS</h2>
-        <a class="small-button" href="settings.html">Manage</a>
+        <a class="small-button" href="settings.html">Manage</a> <!-- Link to the settings page for managing alarms -->
       </div>
-      <div id="dashboardAlarms" class="alarm-list"></div>
+      <div id="dashboardAlarms" class="alarm-list"></div> <!-- Container for displaying the list of alarms on the dashboard -->
     </section>
   </main>
 
+  <!-- Footer Section -->
   <footer>
     <span>&copy; Smart Room Clock 2026 - Nick Nguyen</span>
-    <span id="connectionStatus">Sensor Data</span>
+    <a href="settings.html">To Settings Page</a> <!-- Link to the settings page -->
   </footer>
 
-  <script src="script.js"></script>
+  <script src="script.js"></script> <!-- Link to the external JavaScript file for handling dashboard functionality -->
   <script>
-    initDashboard();
+    initDashboard(); <!-- Initialise the dashboard functionality when the page loads -->
   </script>
 </body>
 </html>

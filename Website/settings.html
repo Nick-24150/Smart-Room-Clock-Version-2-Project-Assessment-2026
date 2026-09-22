@@ -1,113 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Initial HTML Setup -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart Room Clock - Settings</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>Smart Room Clock - Settings</title> <!-- Title of the page - Settings Page -->
+  <link rel="stylesheet" href="styles.css"> <!-- Font Styles taken from Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet"> 
 </head>
+
+<!-- Overall Structure of the Settings Page -->
 <body>
+  <!-- Header Section -->
   <header class="topbar">
     <div>
+      <!-- Website Title with Subheading -->
       <h1>SMART ROOM CLOCK</h1>
       <p>Settings Page</p>
     </div>
     <nav>
-      <a href="dashboard.html">Dashboard</a>
-      <a class="active" href="settings.html">Settings</a>
+      <a href="dashboard.html">Dashboard</a> <!-- Link to the dashboard page -->
+      <a class="active" href="settings.html">Settings</a> <!-- Active link for the current page -->
     </nav>
   </header>
 
+  <!-- Main Settings Content -->
   <main class="settings-page">
-
+    <!-- Settings Card -->
     <section class="settings-card">
       <div class="card-title">
+        <!-- Card Title - Display Settings -->
         <h2>DISPLAY SETTINGS</h2>
       </div>
 
-      <div class="setting-row">
+      <div class="setting-row"> <!-- Row for Brightness Mode Settings -->
         <div>
+          <!-- Brightness Mode Label and Description -->
           <h3>Brightness mode</h3>
           <p>This controls the brightness/theme of this web interface only. <br> It does not change the physical TFT.</p>
         </div>
+        <!-- Radio Button Group for Brightness Mode -->
         <div class="radio-group">
-          <label><input type="radio" name="brightness" value="dark"> Dark</label>
-          <label><input type="radio" name="brightness" value="medium"> Medium</label>
-          <label><input type="radio" name="brightness" value="bright"> Bright</label>
-          <label><input type="radio" name="brightness" value="auto" checked> Auto</label>
+          <label><input type="radio" name="brightness" value="dark"> Dark</label> <!-- Radio button for Dark mode -->
+          <label><input type="radio" name="brightness" value="medium"> Medium</label> <!-- Radio button for Medium mode -->
+          <label><input type="radio" name="brightness" value="bright"> Bright</label> <!-- Radio button for Bright mode -->
+          <label><input type="radio" name="brightness" value="auto" checked> Auto</label> <!-- Radio button for Auto mode (default selected) -->
         </div>
       </div>
-
+      
       <div class="setting-row">
         <div>
+          <!-- Colour Settings Label and Description -->
           <h3>Colour settings</h3>
           <p>These settings control the appearance of the clock display.</p>
         </div>
       <div class="colour-grid">
         <label>
-          Clock background colour
-          <input type="color" id="backgroundColor" value="#000000">
+          <!-- Clock background colour -->
+          Clock background colour 
+          <input type="color" id="backgroundColor" value="#000000"> <!-- Color picker input for background colour -->
           <small>Changes the background of the ESP32 TFT.</small>
         </label>
         <label>
+          <!-- Clock text colour -->
           Clock text colour
-          <input type="color" id="textColor" value="#ffffff">
+          <input type="color" id="textColor" value="#ffffff"> <!-- Color picker input for text colour -->
           <small>Changes the text colour of the ESP32 TFT.</small>
         </label>
       </div></div>
       <div>
+        <!-- Save & Update Button for Display Settings -->
         <button class="primary-button" onclick="saveDisplaySettings()">Save &amp; Update</button>
       </div>
       
-      
+      <!-- Display Message for when settings are saved -->
       <p id="displayMessage" class="muted"></p>
     </section>
 
     <section class="settings-card">
       <div class="card-title">
+        <!-- Card Title - Alarm Settings -->
         <h2>ALARM SETTINGS</h2>
-        <span class="muted">Add, update or remove alarms</span>
+        <span class="muted">Add, update or remove alarms</span> 
       </div>
 
+      <!-- Alarm Form for Adding/Editing/Removing Alarms -->
       <form id="alarmForm" class="alarm-form">
-        <input type="hidden" id="editingAlarmId">
+      <input type="hidden" id="editingAlarmId">
 
         <label>
           Alarm name
-          <input id="alarmName" type="text" placeholder="e.g. Wake up" required>
+          <input id="alarmName" type="text" placeholder="e.g. Wake up" required> <!-- Input field for the alarm name, required field -->
         </label>
 
         <label>
           Time
-          <input id="alarmTime" type="time" required>
-        </label>
-
-        <label>
-          Days
-          <select id="alarmDays" multiple required>
-            <option value="Mon">Mon</option>
-            <option value="Tue">Tue</option>
-            <option value="Wed">Wed</option>
-            <option value="Thu">Thu</option>
-            <option value="Fri">Fri</option>
-            <option value="Sat">Sat</option>
-            <option value="Sun">Sun</option>
-          </select>
+          <input id="alarmTime" type="time" required> <!-- Input field for the alarm time, required field -->
         </label>
 
         <div class="form-actions">
-          <button class="primary-button" type="submit">Save alarm</button>
-          <button class="secondary-button" type="button" onclick="resetAlarmForm()">Clear</button>
+          <button class="primary-button" type="submit">Save alarm</button> <!-- Button to save the alarm, submits the form -->
+          <button class="secondary-button" type="button" onclick="resetAlarmForm()">Clear</button> <!-- Button to clear the form fields, calls resetAlarmForm() function -->
         </div>
       </form>
 
-      <div id="settingsAlarmList" class="settings-alarm-list"></div>
+      <div id="settingsAlarmList" class="settings-alarm-list"></div> <!-- Container for displaying the list of alarms in the settings page -->
     </section>
 
-    <section class="settings-card">
+    <!-- ESP32 Connection Section (Might Use in the Future) -->
+    <!-- <section class="settings-card">
       <div class="card-title">
         <h2>ESP32 CONNECTION</h2>
       </div>
@@ -123,18 +126,19 @@
         <button class="secondary-button" onclick="saveESPAddress()">Save address</button>
       </div>
       <p id="espMessage" class="muted"></p>
-    </section>
+    </section> -->
 
   </main>
 
+  <!-- Footer Section -->
   <footer>
     <span>&copy; Smart Room Clock 2026 - Nick Nguyen</span>
-    <a href="dashboard.html">Back to Dashboard</a>
+    <a href="dashboard.html">Back to Dashboard</a> <!-- Link to return to the dashboard page -->
   </footer>
 
-  <script src="script.js"></script>
+  <script src="script.js"></script> <!-- Link to the external JavaScript file for handling settings functionality -->
   <script>
-    initSettings();
+    initSettings(); <!-- Initialise the settings functionality when the page loads -->
   </script>
 </body>
 </html>
