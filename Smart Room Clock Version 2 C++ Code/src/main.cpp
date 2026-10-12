@@ -6,6 +6,7 @@
 #include "secrets.h"  //double quotes rather than angle brackets makes the compiler look in the sketch folder rather than the library folder
 //#include <LibPrintf.h>
 #include <Arduino.h>
+#include <Arduino_JSON.h>
 #include <Wire.h>
 #include <Adafruit_AHTX0.h> 
 //#include <Adafruit_BMP280.h>  //(OPTIONAL) if using the BMP280 sensor, uncomment this line
@@ -17,10 +18,10 @@
 
 //-----WiFi setup-----
 //the Wifi status
-//int status = WL_IDLE_STATUS;
+int status = WL_IDLE_STATUS;
 
 //-----TEMPERATURE SENSOR OBJECTS-----
-extern Adafruit_AHTX0 ahtSensor; //sensor object for AHT20 Temperature and Humidity sensor
+Adafruit_AHTX0 ahtSensor; //sensor object for AHT20 Temperature and Humidity sensor
 //Adafruit_BMP280 bmp; //(OPTIONAL) sensor object for BMP280 Pressure and Altitude sensor
 
 //-----TFT SCREEN SET UP-----
@@ -57,8 +58,8 @@ int lastLight = -1; // Variable to store the last light level reading
 
 // buttons/alarm variables
 const long DEBOUNCE_DELAY = 50; // Delay for button debouncing
-extern bool alarmActive; // Variable to track if the alarm is active
-extern DateTime alarmTime; // Variable to store the alarm time
+bool alarmActive; // Variable to track if the alarm is active
+DateTime alarmTime; // Variable to store the alarm time
 unsigned long lastBuzzerToggle = 0; // Variable to store the last time the buzzer state was toggled
 bool buzzerState = false; // Variable to track the current state of the buzzer
 int currentNote = 0; // Variable to track the current note being played in the melody
@@ -207,6 +208,8 @@ pins and their current states variables and their current values
 
 //-----GETTING OUTPUT STATES-----
 String getOutputStates() {
+  JSONVar myArray;
+
   DateTime now = realTimeClock.now();
   sensors_event_t humidityEvent, tempEvent;
   ahtSensor.getEvent(&humidityEvent, &tempEvent);
@@ -215,27 +218,32 @@ String getOutputStates() {
   String alarmValue = String(alarmTime.hour()) + ":" + (alarmTime.minute() < 10 ? "0" : "") + String(alarmTime.minute());
   String dateTimeValue = String(DAYS_OF_THE_WEEK[now.dayOfTheWeek()]) + " " + String(now.day()) + "-" + String(now.month()) + "-" + String(now.year());
 
-  String jsonString = "{\"values\":[";
-  jsonString += "{\"Name\":\"Temperature\",\"Value\":";
-  jsonString += String(tempEvent.temperature, 1);
-  jsonString += ",\"Unit\":\"°C\"},";
-  jsonString += "{\"Name\":\"Humidity\",\"Value\":";
-  jsonString += String(humidityEvent.relative_humidity, 1);
-  jsonString += ",\"Unit\":\"%\"},";
-  jsonString += "{\"Name\":\"Light\",\"Value\":";
-  jsonString += String(lightLevelValue);
-  jsonString += ",\"Unit\":\"%\"},";
-  jsonString += "{\"Name\":\"Alarm Time\",\"Value\":\"";
-  jsonString += alarmValue;
-  jsonString += "\",\"Unit\":\"HH:MM\"},";
-  jsonString += "{\"Name\":\"Alarm Active\",\"Value\":\"";
-  jsonString += alarmActive ? "Yes" : "No";
-  jsonString += "\",\"Unit\":\"\"},";
-  jsonString += "{\"Name\":\"Date and Time\",\"Value\":\"";
-  jsonString += dateTimeValue;
-  jsonString += "\",\"Unit\":\"HH:MM\"}";
-  jsonString += "]}";
+  //Temperature
+  myArray["values"][0]["Name"] = "Temperature";
+  myArray["values"][0]["Value"] = String(tempEvent.temperature, 1) + " °C";
 
+  //Humidity
+  myArray["values"][1]["Name"] = "Humidity";
+  myArray["values"][1]["Value"] = String(humidityEvent.relative_humidity, 1) + " %";
+
+  //Light Level
+  myArray["values"][2]["Name"] = "Light Level";
+  myArray["values"][2]["Value"] = String(lightLevelValue);
+  myArray["values"][2]["Unit"] = "Raw ADC Value";
+  myArray["values"][2]["Light Mode"] = (lightLevelValue < DARK_THRESHOLD) ? "Dark" : (lightLevelValue < BRIGHT_THRESHOLD) ? "Medium" : "Bright";
+
+  //Alarm Time
+  myArray["values"][3]["Name"] = "Alarm Time";
+  myArray["values"][3]["Value"] = alarmValue;
+  myArray["values"][3]["Unit"] = "HH:MM";
+
+  //Date and Time
+  myArray["values"][4]["Name"] = "Date and Time";
+  myArray["values"][4]["Value"] = dateTimeValue;
+  myArray["values"][4]["Unit"] = "DD-MM-YYYY HH:MM";
+
+  //Convert the JSON array to a string
+  String jsonString = JSON.stringify(myArray);
   return jsonString;
 }
 
@@ -307,12 +315,20 @@ void extremeTemperatureAlert(int delayTimes, int numTimes);
 
 //-----ESP/CLOCK SETUP----- 
 void setup() {
-  // startup beep
+  //Initialize Serial Monitor
+  Serial.begin(115200);
+  while (!Serial); //Wait for Serial Monitor to open
+  Serial.println("Smart Room Clock Initialising...");
+  delay(1000); //Wait a second
+
+  //Buzzer initial startup beep
+  pinMode(BUZZER_PIN, OUTPUT);
   tone(BUZZER_PIN, 1000);
   delay(100);
   tone(BUZZER_PIN, 1000);
   noTone(BUZZER_PIN);
-  
+
+
   // WiFi setup 
   WiFi.mode(WIFI_STA);
   WiFi.begin(SSID, PASSWORD);
@@ -344,13 +360,8 @@ void setup() {
   server.serveStatic("/", LittleFS, "/");
 
   server.begin();
-  Serial.println("webserver should be running now");
+  Serial.println("Webserver should be running now");
 
-  //Initialize Serial Monitor
-  Serial.begin(115200);
-  while (!Serial); //Wait for Serial Monitor to open
-  Serial.println("Smart Room Clock Initialising...");
-  delay(1000); //Wait a second
 
   //Initialise AHT20 sensor
   if (!ahtSensor.begin()) {
@@ -379,7 +390,6 @@ void setup() {
 
   //Initialise Buttons, LDR, and Buzzer
   pinMode(LDRPIN, INPUT);
-  pinMode(BUZZER_PIN, OUTPUT);
   pinMode(BUTTOND0, INPUT_PULLUP);
   pinMode(BUTTOND1, INPUT_PULLDOWN);
   pinMode(BUTTOND2, INPUT);
@@ -401,7 +411,7 @@ void setup() {
   }
 
   // When time needs to be re-set on a previously configured device, the following line sets the RTC to the date & time this sketch was compiled
-  //realTimeClock.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  realTimeClock.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
   //Ask user to set alarm time via Serial Monitor
   Serial.println("-------------------------------------------------");

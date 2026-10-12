@@ -107,10 +107,10 @@
       </form>
 
       <div id="settingsAlarmList" class="settings-alarm-list"></div> <!-- Container for displaying the list of alarms in the settings page -->
-    </section>
 
-    <!-- ESP32 Connection Section (Might Use in the Future) -->
-    <!-- <section class="settings-card">
+
+    <!-- ESP32 Connection Section -->
+    <section class="settings-card">
       <div class="card-title">
         <h2>ESP32 CONNECTION</h2>
       </div>
@@ -121,12 +121,12 @@
       <div class="connection-grid">
         <label>
           ESP32 address
-          <input id="espAddress" type="text" placeholder="http://192.168.1.100">
+          <input id="espAddress" type="text" placeholder="http://192.168.1.100"> <!-- Input field for the ESP32 address -->
         </label>
-        <button class="secondary-button" onclick="saveESPAddress()">Save address</button>
+        <button class="secondary-button" onclick="saveESPAddress()">Save address</button> <!-- Button to save the ESP32 address, calls saveESPAddress() function -->
       </div>
       <p id="espMessage" class="muted"></p>
-    </section> -->
+    </section>
 
   </main>
 

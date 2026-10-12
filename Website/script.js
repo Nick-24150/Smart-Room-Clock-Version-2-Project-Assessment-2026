@@ -1,523 +1,105 @@
-// ============================================================
-// SMART ROOM CLOCK WEB INTERFACE
-// ============================================================
-// This version uses demo sensor data so the website can be
-// tested before connecting it to the ESP32.
-// Later, replace getSensorData() with fetch() calls to your ESP32.
-// ============================================================
+//Create variables for when the websocket is setup
+var gateway = `ws://${window.location.hostname}/ws`;
+var websocket;
 
-const STORAGE_KEY = "smartRoomClockSettings";
+//Listen for the window loading (or reloading) and call the below method
+window.addEventListener("load", onload);
 
-const defaultSettings = {
-  background: "#ffffff",
-  text: "#111827",
-  brightness: "auto",
-  espAddress: "",
-  alarms: [
-    { id: 1, name: "Alarm 1", time: "06:30", days: ["Mon","Tue","Wed","Thu","Fri"], enabled: false },
-    { id: 2, name: "Alarm 2", time: "07:30", days: ["Mon","Tue","Wed","Thu","Fri"], enabled: false },
-    { id: 3, name: "Alarm 3", time: "08:00", days: ["Sat","Sun"], enabled: false }
-  ]
-};
-
-function getSettings() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) return structuredClone(defaultSettings);
-
-  try {
-    const parsed = JSON.parse(saved);
-    return {
-      ...structuredClone(defaultSettings),
-      ...parsed,
-      alarms: Array.isArray(parsed.alarms) ? parsed.alarms : structuredClone(defaultSettings.alarms)
-    };
-  } catch {
-    return structuredClone(defaultSettings);
-  }
+//When the window loads, call the method below to setup the web socket
+function onload(event) {
+    initWebSocket();
 }
 
-function saveSettings(settings) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  applySettings();
+//Setup the websocket and what to do with various common communications
+function initWebSocket() {
+    console.log("Trying to open a WebSocket connection…");
+    websocket = new WebSocket(gateway);
+    websocket.onopen = onOpen;
+    websocket.onclose = onClose;
+    websocket.onmessage = onMessage;
 }
 
-function applySettings() {
-  const s = getSettings();
-
-  // Brightness is intentionally a WEBSITE setting only.
-  // The clock background/text colours below are sent to the ESP32 instead.
-  if (s.brightness === "dark") {
-    document.documentElement.setAttribute("data-brightness", "dark");
-  } else if (s.brightness === "medium") {
-    document.documentElement.setAttribute("data-brightness", "medium");
-  } else {
-    document.documentElement.setAttribute("data-brightness", "auto");
-  }
+//If the websocket opens give a confirmation message to the console for debugging
+function onOpen(event) {
+    console.log("WebSocket opened");
 }
 
-// Send the clock display settings to the ESP32.
-// The ESP32 will be responsible for applying these colours to the TFT.
-async function sendDisplaySettingsToESP32(settings) {
-  if (!settings.espAddress) {
-    return { ok: false, message: "No ESP32 address has been saved." };
-  }
-
-  try {
-    const response = await fetch(`${settings.espAddress.replace(/\/$/, "")}/api/display-settings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        background: settings.background,
-        text: settings.text
-      })
-    });
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return { ok: true, message: "Clock display settings sent to the ESP32." };
-  } catch (error) {
-    return {
-      ok: false,
-      message: "Could not contact the ESP32. Check the address and Wi-Fi connection."
-    };
-  }
+//If the websocket closes wait 2 seconds and reopen it
+function onClose(event) {
+    console.log("WebSocket closed");
+    setTimeout(initWebSocket, 2000);
 }
 
-// -------------------------
-// Clock
-// -------------------------
-function updateClock() {
-  const now = new Date();
+//when the web server/esp sends a message it will be a JSON array
+    //should be like
+    // 0: {pinNum: '2', state: '0'}
+    // 1: {pinNum: '13', state: '0'}
+    // 2: {r: '0', g: '255', b: '0'}
+//save those values, send to the console for debugging, then update the webpage to match what the webserver has
+//as we are sending it rgb values it may be more efficient to just take the button after suitable fault checking 
+function onMessage(event) {
+    var myObj = JSON.parse(event.data);
+    console.log(myObj);
 
-  const time = now.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false
-  });
+    var temperature = myObj.values[0].value;
+    var humidity = myObj.values[1].value;
+    var lightLevel = myObj.values[2].value;
+    var alarmTime = myObj.values[3].value;
+    var DateTime = myObj.values[4].value;
 
-  const date = now.toLocaleDateString([], {
-    weekday: "long",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  });
+    //fault checking values read correctly
+    console.log(temperature);
+    console.log(humidity);
+    console.log(lightLevel);
+    console.log(alarmTime);
+    console.log(DateTime);
 
-  const timeElement = document.getElementById("timeDisplay");
-  const dateElement = document.getElementById("dateDisplay");
+    //sensor values are displayed on the webpage
+    document.getElementById("tempValue").innerHTML = temperature;
+    document.getElementById("humidityValue").innerHTML = humidity;
+    document.getElementById("lightValue").innerHTML = lightLevel;
+    document.getElementById("alarmTimeValue").innerHTML = alarmTime;
+    document.getElementById("dateTimeValue").innerHTML = DateTime;
 
-  if (timeElement) timeElement.textContent = time;
-  if (dateElement) dateElement.textContent = date;
+    console.log(event.data);
 }
 
-// -------------------------
-// Demo sensor system
-// -------------------------
-let sensorState = {
-  light: 650,
-  temperature: 21.5,
-  humidity: 60
-};
-
-function getSensorData() {
-  // Simulate slowly changing sensor readings.
-  sensorState.light += (Math.random() - 0.5) * 80;
-  sensorState.temperature += (Math.random() - 0.5) * 0.3;
-  sensorState.humidity += (Math.random() - 0.5) * 1.2;
-
-  sensorState.light = Math.max(0, Math.min(1000, sensorState.light));
-  sensorState.temperature = Math.max(5, Math.min(40, sensorState.temperature));
-  sensorState.humidity = Math.max(20, Math.min(90, sensorState.humidity));
-
-  return {
-    light: Math.round(sensorState.light),
-    temperature: Number(sensorState.temperature.toFixed(1)),
-    humidity: Math.round(sensorState.humidity)
-  };
+//Gets the value in the RED slider and displays it on the screen, in the console for debugging, and calls sendRGB
+function updatetestColor1(element) {
+    var input1 = document.getElementById("testColor1").value;
+    document.getElementById("redVal").innerHTML = input1;
+    console.log(input1);
+    sendRGB();
 }
 
-function getLightMode(light) {
-  if (light < 300) return "DARK";
-  if (light <= 700) return "MEDIUM";
-  return "BRIGHT";
+//Gets the value in the GREEN slider and displays it on the screen, in the console for debugging, and calls sendRGB
+function updatetestColor2(element) {
+    var input2 = document.getElementById("testColor2").value;
+    document.getElementById("greenVal").innerHTML = input2;
+    console.log(input2);
+    sendRGB();
 }
 
-function getComfort(temp) {
-  if (temp < 12) return "COLD";
-  if (temp < 18) return "COOL";
-  if (temp < 24) return "COMFORTABLE";
-  if (temp < 30) return "WARM";
-  return "HOT";
+//Gets the value in the BLUE slider and displays it on the screen, in the console for debugging, and calls sendRGB
+function updatetestColor3(element) {
+    var input3 = document.getElementById("testColor3").value;
+    document.getElementById("blueVal").innerHTML = input3;
+    console.log(input3);
+    sendRGB();
 }
 
-// -------------------------
-// Simple line chart
-// -------------------------
-const lightHistory = [];
-const tempHistory = [];
+//Gets the three RGB values from the webpage and sends them in a rgb(0,0,0) format back to the webserver/esp
+function sendRGB() {
+    var input1 = document.getElementById("testColor1").value;
+    var input2 = document.getElementById("testColor2").value;
+    var input3 = document.getElementById("testColor3").value;
 
-function drawLineChart(canvas, values, minValue, maxValue, unit) {
-  if (!canvas) return;
-
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-
-  const ctx = canvas.getContext("2d");
-  ctx.scale(dpr, dpr);
-
-  const width = rect.width;
-  const height = rect.height;
-
-  ctx.clearRect(0, 0, width, height);
-
-  // Grid
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "#e5e7eb";
-
-  for (let i = 0; i <= 4; i++) {
-    const y = 10 + (height - 25) * i / 4;
-    ctx.beginPath();
-    ctx.moveTo(35, y);
-    ctx.lineTo(width - 8, y);
-    ctx.stroke();
-  }
-
-  if (values.length < 2) return;
-
-  const chartWidth = width - 45;
-  const chartHeight = height - 35;
-
-  ctx.beginPath();
-
-  values.forEach((value, index) => {
-    const x = 35 + (chartWidth * index / (values.length - 1));
-    const ratio = (value - minValue) / (maxValue - minValue);
-    const y = 10 + chartHeight - ratio * chartHeight;
-
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = "#2563eb";
-  ctx.stroke();
-
-  // Current value marker
-  const last = values[values.length - 1];
-  const ratio = (last - minValue) / (maxValue - minValue);
-  const x = width - 10;
-  const y = 10 + chartHeight - ratio * chartHeight;
-
-  ctx.beginPath();
-  ctx.arc(x, y, 4, 0, Math.PI * 2);
-  ctx.fillStyle = ctx.strokeStyle;
-  ctx.fill();
-
-  // Labels
-  ctx.fillStyle = "#6b7280";
-  ctx.font = "11px Arial";
-  ctx.fillText(maxValue + unit, 4, 12);
-  ctx.fillText(minValue + unit, 4, height - 10);
+    var rgb = "rgb(" + input1 + "," + input2 + "," + input3 + ")";
+    websocket.send(rgb);
 }
 
-function updateDashboardSensors() {
-  const data = getSensorData();
-
-  lightHistory.push(data.light);
-  tempHistory.push(data.temperature);
-
-  if (lightHistory.length > 30) lightHistory.shift();
-  if (tempHistory.length > 30) tempHistory.shift();
-
-  const lightValue = document.getElementById("lightValue");
-  const lightMode = document.getElementById("lightMode");
-  const tempValue = document.getElementById("tempValue");
-  const comfortMode = document.getElementById("comfortMode");
-  const humidityValue = document.getElementById("humidityValue");
-  const humidityFill = document.getElementById("humidityFill");
-
-  if (lightValue) lightValue.textContent = data.light;
-  if (lightMode) lightMode.textContent = getLightMode(data.light);
-
-  if (tempValue) tempValue.textContent = `${data.temperature}°C`;
-  if (comfortMode) comfortMode.textContent = getComfort(data.temperature);
-
-  if (humidityValue) humidityValue.textContent = `${data.humidity}%`;
-  if (humidityFill) humidityFill.style.width = `${data.humidity}%`;
-
-  drawLineChart(
-    document.getElementById("lightChart"),
-    lightHistory,
-    0,
-    1000,
-    ""
-  );
-
-  drawLineChart(
-    document.getElementById("tempChart"),
-    tempHistory,
-    0,
-    40,
-    "°"
-  );
+//Sends a message to the webserver/esp to get the states of variables we care about when the webpage loads for the first time
+function getStates() {
+    //this triggers a notifyClients method in the c++ file which comes back by the onMessage function
+    websocket.send("getStates");
 }
-
-// -------------------------
-// Alarms
-// -------------------------
-function renderDashboardAlarms() {
-  const container = document.getElementById("dashboardAlarms");
-  if (!container) return;
-
-  const settings = getSettings();
-  container.innerHTML = "";
-
-  settings.alarms.forEach(alarm => {
-    const item = document.createElement("div");
-    item.className = "alarm-item";
-
-    item.innerHTML = `
-      <div>
-        <strong>${escapeHTML(alarm.name)}</strong>
-        <small>${alarm.time} • ${alarm.days.length ? alarm.days.join(", ") : "No days selected"}</small>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" ${alarm.enabled ? "checked" : ""}
-          onchange="toggleAlarm(${alarm.id}, this.checked)">
-        <span class="slider"></span>
-      </label>
-    `;
-
-    container.appendChild(item);
-  });
-}
-
-function toggleAlarm(id, enabled) {
-  const settings = getSettings();
-  const alarm = settings.alarms.find(a => a.id === id);
-
-  if (alarm) {
-    alarm.enabled = enabled;
-    saveSettings(settings);
-  }
-}
-
-function renderSettingsAlarms() {
-  const container = document.getElementById("settingsAlarmList");
-  if (!container) return;
-
-  const settings = getSettings();
-  container.innerHTML = "";
-
-  settings.alarms.forEach(alarm => {
-    const item = document.createElement("div");
-    item.className = "alarm-item";
-
-    item.innerHTML = `
-      <div>
-        <strong>${escapeHTML(alarm.name)}</strong>
-        <small>${alarm.time} • ${alarm.days.length ? alarm.days.join(", ") : "No days selected"}</small>
-      </div>
-
-      <label class="toggle">
-        <input type="checkbox" ${alarm.enabled ? "checked" : ""}
-          onchange="toggleAlarm(${alarm.id}, this.checked); renderSettingsAlarms()">
-        <span class="slider"></span>
-      </label>
-
-      <div>
-        <button class="secondary-button" onclick="editAlarm(${alarm.id})">Edit</button>
-        <button class="danger-button" onclick="deleteAlarm(${alarm.id})">Delete</button>
-      </div>
-    `;
-
-    container.appendChild(item);
-  });
-}
-
-function editAlarm(id) {
-  const settings = getSettings();
-  const alarm = settings.alarms.find(a => a.id === id);
-  if (!alarm) return;
-
-  document.getElementById("editingAlarmId").value = alarm.id;
-  document.getElementById("alarmName").value = alarm.name;
-  document.getElementById("alarmTime").value = alarm.time;
-
-  const select = document.getElementById("alarmDays");
-  [...select.options].forEach(option => {
-    option.selected = alarm.days.includes(option.value);
-  });
-
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function deleteAlarm(id) {
-  const settings = getSettings();
-
-  if (settings.alarms.length <= 1) {
-    alert("Keep at least one alarm.");
-    return;
-  }
-
-  settings.alarms = settings.alarms.filter(a => a.id !== id);
-  saveSettings(settings);
-  renderSettingsAlarms();
-  renderDashboardAlarms();
-}
-
-function resetAlarmForm() {
-  document.getElementById("editingAlarmId").value = "";
-  document.getElementById("alarmName").value = "";
-  document.getElementById("alarmTime").value = "";
-
-  [...document.getElementById("alarmDays").options]
-    .forEach(option => option.selected = false);
-}
-
-function handleAlarmForm(event) {
-  event.preventDefault();
-
-  const settings = getSettings();
-  const id = document.getElementById("editingAlarmId").value;
-  const name = document.getElementById("alarmName").value.trim();
-  const time = document.getElementById("alarmTime").value;
-
-  const days = [...document.getElementById("alarmDays").selectedOptions]
-    .map(option => option.value);
-
-  if (!name || !time) return;
-
-  if (id) {
-    const alarm = settings.alarms.find(a => a.id === Number(id));
-    if (alarm) {
-      alarm.name = name;
-      alarm.time = time;
-      alarm.days = days;
-    }
-  } else {
-    settings.alarms.push({
-      id: Date.now(),
-      name,
-      time,
-      days,
-      enabled: false
-    });
-  }
-
-  saveSettings(settings);
-  resetAlarmForm();
-  renderSettingsAlarms();
-}
-
-async function saveDisplaySettings() {
-  const settings = getSettings();
-
-  // These colours belong to the PHYSICAL ESP32 TFT, not the webpage.
-  settings.background = document.getElementById("backgroundColor").value;
-  settings.text = document.getElementById("textColor").value;
-
-  const selected = document.querySelector('input[name="brightness"]:checked');
-  settings.brightness = selected ? selected.value : "auto";
-
-  saveSettings(settings);
-
-  const result = await sendDisplaySettingsToESP32(settings);
-  const message = document.getElementById("displayMessage");
-
-  if (message) {
-    message.textContent = result.ok
-      ? result.message
-      : `${result.message} The settings are still saved in the browser and can be sent later.`;
-  }
-}
-
-function loadDisplaySettings() {
-  const settings = getSettings();
-
-  document.getElementById("backgroundColor").value = settings.background;
-  document.getElementById("textColor").value = settings.text;
-
-  const radio = document.querySelector(
-    `input[name="brightness"][value="${settings.brightness}"]`
-  );
-
-  if (radio) radio.checked = true;
-}
-
-function saveESPAddress() {
-  const settings = getSettings();
-  settings.espAddress = document.getElementById("espAddress").value.trim();
-  saveSettings(settings);
-
-  document.getElementById("espMessage").textContent =
-    "ESP32 address saved. API communication can be connected here later.";
-}
-
-// -------------------------
-// ESP32 integration example
-// -------------------------
-// Once your ESP32 web server is ready, you can replace demo data with:
-//
-// async function getSensorData() {
-//   const response = await fetch("http://YOUR-ESP32-IP/api/sensors");
-//   return await response.json();
-// }
-//
-// Expected response:
-// {
-//   "light": 650,
-//   "temperature": 21.5,
-//   "humidity": 60
-// }
-//
-// You can also send an alarm to the ESP32:
-//
-// fetch("http://YOUR-ESP32-IP/api/alarm", {
-//   method: "POST",
-//   headers: {"Content-Type": "application/json"},
-//   body: JSON.stringify({time: "06:30", enabled: true})
-// });
-
-function escapeHTML(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-// -------------------------
-// Page initialisation
-// -------------------------
-function initDashboard() {
-  applySettings();
-  updateClock();
-  renderDashboardAlarms();
-  updateDashboardSensors();
-
-  setInterval(updateClock, 1000);
-  setInterval(updateDashboardSensors, 2000);
-
-  window.addEventListener("resize", () => {
-    drawLineChart(document.getElementById("lightChart"), lightHistory, 0, 1000, "");
-    drawLineChart(document.getElementById("tempChart"), tempHistory, 0, 40, "°");
-  });
-}
-
-function initSettings() {
-  applySettings();
-  loadDisplaySettings();
-  renderSettingsAlarms();
-
-  const settings = getSettings();
-  document.getElementById("espAddress").value = settings.espAddress;
-
-  document.getElementById("alarmForm")
-    .addEventListener("submit", handleAlarmForm);
-}
-
-applySettings();

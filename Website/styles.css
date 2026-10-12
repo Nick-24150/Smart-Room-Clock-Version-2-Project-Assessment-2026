@@ -1,7 +1,7 @@
 /* ============================================================
    SMART ROOM CLOCK - WEBSITE THEME
    Change colours ONLY in this section to customise the website.
-   These colours affect the website, NOT the ESP32 TFT display.
+   These colours affect only the website, NOT the ESP32 TFT display.
    ============================================================ */
 
 :root {
@@ -62,6 +62,8 @@
    ESP32 display background/text colour settings.
    ============================================================ */
 
+
+/* Dark mode */
 html[data-brightness="dark"] {
   --bg: #111827;
   --card: #1f2937;
@@ -74,6 +76,7 @@ html[data-brightness="dark"] {
   --shadow: rgba(0, 0, 0, 0.18);
 }
 
+/* Medium mode */
 html[data-brightness="medium"] {
   --bg: #e5e7eb;
   --card: #ffffff;
@@ -84,6 +87,7 @@ html[data-brightness="medium"] {
   --bar-bg: #d1d5db;
 }
 
+/* Bright and Auto mode */
 html[data-brightness="auto"],
 html[data-brightness="bright"] {
    --bg: var(--theme-bg);
@@ -103,16 +107,19 @@ html[data-brightness="bright"] {
    GENERAL
    ============================================================ */
 
+/* Reset box-sizing for all elements */
 * {
   box-sizing: border-box;
 }
 
+/* HTML setup for full height and background */
 html {
   min-height: 100%;
   background: var(--bg);
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Reset default margins and set font for body */
 body {
   margin: 0;
   min-height: 100vh;
@@ -126,6 +133,8 @@ body {
    HEADER / NAVIGATION
    ============================================================ */
 
+
+/* Top bar styling */
 .topbar {
   min-height: 82px;
   padding: 16px 5%;
@@ -137,23 +146,27 @@ body {
   gap: 25px;
 }
 
+/* Top bar title styling */
 .topbar h1 {
   margin: 0;
   font-size: 22px;
   letter-spacing: 1.5px;
 }
 
+/* Top bar subtitle styling */
 .topbar p {
   margin: 5px 0 0;
   color: var(--muted);
   font-size: 13px;
 }
 
+/* Navigation styling */
 nav {
   display: flex;
   gap: 8px;
 }
 
+/* Navigation links and small buttons styling */
 nav a,
 .small-button {
   text-decoration: none;
@@ -164,6 +177,7 @@ nav a,
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Active and hover states for navigation links and small buttons */
 nav a.active,
 nav a:hover,
 .small-button:hover {
@@ -175,6 +189,7 @@ nav a:hover,
    DASHBOARD LAYOUT
    ============================================================ */
 
+/* Dashboard container styling */
 .dashboard {
   width: min(1200px, 90%);
   margin: 28px auto;
@@ -183,6 +198,7 @@ nav a:hover,
   gap: 18px;
 }
 
+/* Card styling for sensor, info, and settings cards */
 .sensor-card,
 .info-card,
 .settings-card {
@@ -194,15 +210,18 @@ nav a:hover,
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
+/* Flex properties for sensor cards */
 .sensor-card {
   flex: 1 1 30%;
   min-width: 280px;
 }
 
+/* Minimum height for graph cards */
 .graph-card {
   min-height: 310px;
 }
 
+/* Flex properties for humidity cards */
 .humidity-card {
   display: flex;
   flex-direction: column;
@@ -210,11 +229,13 @@ nav a:hover,
   align-items: stretch;
 }
 
+/* Flex properties for info cards */
 .info-card {
   flex: 1 1 45%;
   min-width: 300px;
 }
 
+/* Flex properties for settings cards */
 .card-title {
   display: flex;
   align-items: center;
@@ -222,6 +243,7 @@ nav a:hover,
   gap: 12px;
 }
 
+/* Card title styling for h2 elements */
 .card-title h2,
 .sensor-card h2,
 .info-card h2,
@@ -231,6 +253,7 @@ nav a:hover,
   letter-spacing: 1px;
 }
 
+/* Status badge styling */
 .status-badge {
   padding: 5px 9px;
   border-radius: 20px;
@@ -244,6 +267,7 @@ nav a:hover,
    SENSOR GRAPHS
    ============================================================ */
 
+/* Graph canvas styling */
 canvas {
   display: block;
   width: 100%;
@@ -251,6 +275,7 @@ canvas {
   margin-top: 18px;
 }
 
+/* Chart footer styling */
 .chart-footer {
   display: flex;
   justify-content: space-between;
@@ -262,6 +287,7 @@ canvas {
    HUMIDITY
    ============================================================ */
 
+/* Humidity value styling */
 .humidity-value {
   font-size: clamp(55px, 8vw, 85px);
   font-weight: 700;
@@ -269,11 +295,13 @@ canvas {
   margin: 30px 0 18px;
 }
 
+/* Humidity card paragraph styling */
 .humidity-card p {
   text-align: center;
   color: var(--muted);
 }
 
+/* Humidity bar container styling */
 .humidity-bar {
   width: 100%;
   height: 12px;
@@ -282,6 +310,7 @@ canvas {
   overflow: hidden;
 }
 
+/* Humidity fill styling with transition for width changes */
 #humidityFill {
   width: 60%;
   height: 100%;
@@ -293,11 +322,13 @@ canvas {
    TIME / DATE
    ============================================================ */
 
+/* Date display styling */
 .date-display {
   font-size: 25px;
   margin: 15px 0 30px;
 }
 
+/* Time display styling with responsive font size */
 .time-display {
   font-size: clamp(42px, 7vw, 65px);
   font-weight: 700;
@@ -308,6 +339,7 @@ canvas {
    ALARMS
    ============================================================ */
 
+/* Alarm list and settings alarm list styling */
 .alarm-list,
 .settings-alarm-list {
   display: flex;
@@ -316,6 +348,7 @@ canvas {
   margin-top: 18px;
 }
 
+/* Individual alarm item styling */
 .alarm-item {
   display: flex;
   justify-content: space-between;
@@ -326,10 +359,12 @@ canvas {
   border-radius: 10px;
 }
 
+/* Alarm item strong text styling */
 .alarm-item strong {
   display: block;
 }
 
+/* Alarm item small text styling */
 .alarm-item small {
   color: var(--muted);
 }
@@ -338,6 +373,7 @@ canvas {
    TOGGLE SWITCHES
    ============================================================ */
 
+/* Toggle switch container styling */
 .toggle {
   position: relative;
   width: 44px;
@@ -345,10 +381,12 @@ canvas {
   flex-shrink: 0;
 }
 
+/* Hide the checkbox input for the toggle switch */
 .toggle input {
   display: none;
 }
 
+/* Slider styling for the toggle switch */
 .slider {
   position: absolute;
   inset: 0;
@@ -358,6 +396,7 @@ canvas {
   transition: 0.2s;
 }
 
+/* Slider knob styling for the toggle switch */
 .slider:before {
   content: "";
   position: absolute;
@@ -370,10 +409,12 @@ canvas {
   transition: 0.2s;
 }
 
+/* Change background color of the slider when the toggle is checked */
 .toggle input:checked + .slider {
   background: var(--accent);
 }
 
+/* Move the slider knob to the right when the toggle is checked */
 .toggle input:checked + .slider:before {
   transform: translateX(20px);
 }
@@ -382,6 +423,7 @@ canvas {
    FOOTER
    ============================================================ */
 
+/* Footer styling */
 footer {
   margin-top: 40px;
   padding: 18px 5%;
@@ -393,11 +435,13 @@ footer {
   font-size: 13px;
 }
 
+/* Footer links styling */
 footer a {
   color: var(--accent);
   text-decoration: none;
 }
 
+/* Footer links hover effect */
 footer a:hover {
   text-decoration: underline;
 }
@@ -406,6 +450,7 @@ footer a:hover {
    SETTINGS PAGE
    ============================================================ */
 
+/* Settings page container styling */
 .settings-page {
   width: min(950px, 90%);
   margin: 28px auto;
@@ -414,12 +459,14 @@ footer a:hover {
   gap: 18px;
 }
 
+/* Settings card styling */
 .settings-card {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
+/* Settings row styling */
 .setting-row {
   display: flex;
   justify-content: space-between;
@@ -429,10 +476,12 @@ footer a:hover {
   border-bottom: 1px solid var(--border);
 }
 
+/* Settings row heading styling */
 .setting-row h3 {
   margin: 0 0 5px;
 }
 
+/* Settings row paragraph styling */
 .setting-row p,
 .settings-card > p {
   color: var(--muted);
@@ -440,12 +489,14 @@ footer a:hover {
   line-height: 1.5;
 }
 
+/* Radio group styling */
 .radio-group {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
 }
 
+/* Colour grid and connection grid styling */
 .colour-grid,
 .connection-grid {
   display: flex;
@@ -453,6 +504,7 @@ footer a:hover {
   gap: 18px;
 }
 
+/* Alarm form styling */
 .colour-grid label,
 .connection-grid label,
 .alarm-form label {
@@ -464,6 +516,7 @@ footer a:hover {
   flex: 1 1 180px;
 }
 
+/* Colour input and select styling */
 input[type="color"] {
   width: 100%;
   height: 42px;
@@ -474,6 +527,7 @@ input[type="color"] {
   cursor: pointer;
 }
 
+/* Text input, time input, and select styling */
 input[type="text"],
 input[type="time"],
 select {
@@ -485,10 +539,12 @@ select {
   color: var(--text);
 }
 
+/* Minimum height for select elements */
 select {
   min-height: 100px;
 }
 
+/* Alarm form styling */
 .alarm-form {
   display: flex;
   flex-wrap: wrap;
@@ -496,11 +552,13 @@ select {
   align-items: end;
 }
 
+/* Form actions styling */
 .form-actions {
   display: flex;
   gap: 8px;
 }
 
+/* Button styling for primary and secondary buttons */
 .primary-button,
 .secondary-button {
   border: 0;
@@ -511,31 +569,37 @@ select {
   transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
+/* Primary button styling */
 .primary-button {
   background: var(--accent);
   color: #ffffff;
 }
 
+/* Primary button hover effect */
 .primary-button:hover {
   background: var(--accent-hover, var(--theme-accent-hover));
 }
 
+/* Secondary button styling */
 .secondary-button {
   background: var(--bar-bg);
   color: var(--text);
 }
 
+/* Secondary button hover effect */
 .primary-button:active,
 .secondary-button:active,
 .danger-button:active {
   transform: translateY(1px);
 }
 
+/* Alarm item grid layout for settings alarm list */
 .settings-alarm-list .alarm-item {
   display: grid;
   grid-template-columns: 1fr auto auto;
 }
 
+/* Danger button styling */
 .danger-button {
   border: 0;
   background: var(--theme-danger-bg);
@@ -545,6 +609,12 @@ select {
   cursor: pointer;
 }
 
+/* Danger button hover effect */
+.danger-button:hover {
+  background: var(--theme-danger-hover);
+}
+
+/* Muted text styling */
 .muted {
   color: var(--muted);
   font-size: 13px;
@@ -554,32 +624,39 @@ select {
    RESPONSIVE DESIGN
    ============================================================ */
 
+/* Adjust layout for screens smaller than 700px */
 @media (max-width: 700px) {
+  /* Stack top bar and setting rows vertically */
   .topbar,
   .setting-row {
     flex-direction: column;
     align-items: flex-start;
   }
-
+  
+  /* Adjust navigation layout for smaller screens */
   nav {
     width: 100%;
   }
 
+  /* Center navigation links and small buttons */
   nav a,
   .small-button {
     flex: 1;
     text-align: center;
   }
 
+  /* Stack dashboard cards vertically */
   .sensor-card,
   .info-card {
     flex-basis: 100%;
   }
 
+  /* Stack settings alarm list items vertically */
   .settings-alarm-list .alarm-item {
     grid-template-columns: 1fr;
   }
 
+  /* Stack footer content vertically */
   footer {
     flex-direction: column;
     gap: 8px;

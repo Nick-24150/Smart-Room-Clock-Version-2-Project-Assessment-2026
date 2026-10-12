@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_AHTX0.h> // AHT20 sensor library
 #include <Adafruit_BMP280.h> // BMP280 sensor library
+#include <Wire.h>
 
 // Create sensor objects
 Adafruit_AHTX0 aht;
@@ -10,6 +11,23 @@ Adafruit_BMP280 bmp;
 void setup() {
   Serial.begin(115200);
   while (!Serial); //Wait for Serial Monitor to open
+
+  Wire.begin();
+
+  Serial.println("Scanning I2C bus...");
+
+  int devicesFound = 0;
+
+  for (byte address = 1; address < 127; address++) {
+    Wire.beginTransmission(address);
+
+    if (Wire.endTransmission() == 0) {
+      Serial.printf("Device found at 0x%02X\n", address);
+      devicesFound++;
+    }
+  }
+
+  Serial.printf("Total devices found: %d\n", devicesFound);
 
   //Intialise AHT20 sensor
   if (!aht.begin()) {
