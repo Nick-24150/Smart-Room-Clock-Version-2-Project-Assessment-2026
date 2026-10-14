@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smart Room Clock - Dashboard</title> <!-- Title of the page - Dashboard Page -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Chart.js library for rendering charts -->
   <link rel="stylesheet" href="styles.css"> <!-- Font Styles taken from Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,9 +36,11 @@
       <div class="card-title">
         <!-- Card Title - Lighting -->
         <h2>LIGHTING</h2>
-        <span id="lightMode" class="status-badge">MEDIUM</span>
+        <span id="lightMode" class="status-badge">N/A</span>
       </div>
-      <canvas id="lightChart"></canvas> <!-- Chart Container for Lighting Data (Line Graph) -->
+      <div class="chart-container"> <!-- Container for the lighting chart -->
+        <canvas id="lightChart"></canvas> <!-- Chart Container for Lighting Data (Line Graph) -->
+      </div>
       <div class="chart-footer"> <!-- Footer for the chart displaying current light value and label -->
         <span>Current: <b id="lightValue">0</b></span> <!-- Displays the current light value -->
         <span>Room light level</span> <!-- Label for the chart footer -->
@@ -48,12 +51,15 @@
       <div class="card-title">
         <!-- Card Title - Temperature -->
         <h2>TEMPERATURE</h2>
-        <span id="comfortMode" class="status-badge">COMFORTABLE</span>
+        <span id="comfortMode" class="status-badge">N/A</span>
       </div>
-      <canvas id="tempChart"></canvas> <!-- Chart Container for Temperature Data (Line Graph) -->
+      <div class="chart-container"> <!-- Container for the temperature chart -->
+        <canvas id="tempChart"></canvas> <!-- Chart Container for Temperature Data (Line Graph) -->
+      </div>
+      
       <div class="chart-footer"> <!-- Footer for the chart displaying current temperature value and label -->
         <span>Current: <b id="tempValue">0°C</b></span> <!-- Displays the current temperature value -->
-        <span id="tempRange">--</span> <!-- Label for the chart footer -->
+        <span>Room temperature</span> <!-- Label for the chart footer -->
       </div>
     </section>
 
@@ -62,7 +68,7 @@
         <!-- Card Title - Humidity -->
         <h2>HUMIDITY</h2>
       </div>
-      <div class="humidity-value" id="humidityValue">60%</div> <!-- Displays the current humidity value -->
+      <div class="humidity-value" id="humidityValue">N/A</div> <!-- Displays the current humidity value -->
       <div class="humidity-bar"> <!-- Humidity bar container -->
         <div id="humidityFill"></div> <!-- Fill element for the humidity bar, dynamically adjusted based on humidity value -->
       </div>
@@ -94,9 +100,6 @@
     <a href="settings.html">To Settings Page</a> <!-- Link to the settings page -->
   </footer>
 
-  <script src="script.js"></script> <!-- Link to the external JavaScript file for handling dashboard functionality -->
-  <script>
-    initDashboard(); <!-- Initialise the dashboard functionality when the page loads -->
-  </script>
+  <script src="script.js"></script> <!-- Link to the external JavaScript file for dashboard functionality -->
 </body>
 </html>

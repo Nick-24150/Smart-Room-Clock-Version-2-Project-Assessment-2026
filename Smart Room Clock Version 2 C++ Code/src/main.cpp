@@ -216,31 +216,43 @@ String getOutputStates() {
   int lightLevelValue = analogRead(LDRPIN);
 
   String alarmValue = String(alarmTime.hour()) + ":" + (alarmTime.minute() < 10 ? "0" : "") + String(alarmTime.minute());
-  String dateTimeValue = String(DAYS_OF_THE_WEEK[now.dayOfTheWeek()]) + " " + String(now.day()) + "-" + String(now.month()) + "-" + String(now.year());
+  String dateValue = String(DAYS_OF_THE_WEEK[now.dayOfTheWeek()]) + " " + String(now.day()) + "-" + String(now.month()) + "-" + String(now.year());
+  String timeValue = String(now.hour()) + ":" + (now.minute() < 10 ? "0" : "") + String(now.minute());
 
   //Temperature
-  myArray["values"][0]["Name"] = "Temperature";
-  myArray["values"][0]["Value"] = String(tempEvent.temperature, 1) + " °C";
+  myArray["values"][0]["name"] = "Temperature";
+  myArray["values"][0]["tempValue"] = String(tempEvent.temperature, 1) + " °C";
+
+  // Comfort Mode
+  myArray["values"][1]["name"] = "Comfort Mode";
+  myArray["values"][1]["comfortMode"] = (tempEvent.temperature < COLD_THRESHOLD) ? "Cold" : (tempEvent.temperature < COOL_THRESHOLD) ? "Cool" : (tempEvent.temperature < COMFORTABLE_THRESHOLD) ? "Comfortable" : (tempEvent.temperature < WARM_THRESHOLD) ? "Warm" : "Hot";
 
   //Humidity
-  myArray["values"][1]["Name"] = "Humidity";
-  myArray["values"][1]["Value"] = String(humidityEvent.relative_humidity, 1) + " %";
+  myArray["values"][2]["name"] = "Humidity";
+  myArray["values"][2]["humidValue"] = String(humidityEvent.relative_humidity, 1) + " %";
 
-  //Light Level
-  myArray["values"][2]["Name"] = "Light Level";
-  myArray["values"][2]["Value"] = String(lightLevelValue);
-  myArray["values"][2]["Unit"] = "Raw ADC Value";
-  myArray["values"][2]["Light Mode"] = (lightLevelValue < DARK_THRESHOLD) ? "Dark" : (lightLevelValue < BRIGHT_THRESHOLD) ? "Medium" : "Bright";
+  //Light Level 
+  myArray["values"][3]["name"] = "Light Level";
+  myArray["values"][3]["lightValue"] = String(lightLevelValue) + " (ADC Value)";
+
+  //Light Mode
+  myArray["values"][3]["name"] = "Light Mode";
+  myArray["values"][3]["lightMode"] = (lightLevelValue < DARK_THRESHOLD) ? "Dark" : (lightLevelValue < BRIGHT_THRESHOLD) ? "Medium" : "Bright";
 
   //Alarm Time
-  myArray["values"][3]["Name"] = "Alarm Time";
-  myArray["values"][3]["Value"] = alarmValue;
-  myArray["values"][3]["Unit"] = "HH:MM";
+  myArray["values"][4]["name"] = "Alarm Time";
+  myArray["values"][4]["alarmValue"] = alarmValue;
+  myArray["values"][4]["unit"] = "HH:MM";
 
-  //Date and Time
-  myArray["values"][4]["Name"] = "Date and Time";
-  myArray["values"][4]["Value"] = dateTimeValue;
-  myArray["values"][4]["Unit"] = "DD-MM-YYYY HH:MM";
+  //Date 
+  myArray["values"][5]["name"] = "Date";
+  myArray["values"][5]["dateValue"] = dateValue;
+  myArray["values"][5]["unit"] = "DOTW-DD-MM-YYYY";
+
+  //Time
+  myArray["values"][5]["name"] = "Time";
+  myArray["values"][5]["timeValue"] = timeValue;
+  myArray["values"][5]["unit"] = "HH:MM";
 
   //Convert the JSON array to a string
   String jsonString = JSON.stringify(myArray);
@@ -253,14 +265,14 @@ void notifyClients(String state) {
   ws.textAll(state);
 }
 
-// Handles messages from clidents in the if statements below !!!TO BE UPDATED AFTER HTML!!!
+// Handles messages from clidents in the if statements below 
 void handleWebSocketMessage(void* arg, uint8_t* data, size_t len) {
   AwsFrameInfo* info = (AwsFrameInfo*)arg;
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
     data[len] = 0;
     if (strcmp((char*)data, "getStates") == 0) {
       notifyClients(getOutputStates());
-    }
+    } 
   }
 }
 
@@ -352,10 +364,13 @@ void setup() {
   initWebSocket();
 
   //Web Server setup
-
   // Web Server Root URL
   server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(LittleFS, "/index.html", "text/html", false);
+    request->send(LittleFS, "/dashboard.html", "text/html", false);
+  });
+  
+  server.on("/settings", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(LittleFS, "/settings.html", "text/html", false);
   });
   server.serveStatic("/", LittleFS, "/");
 
@@ -416,9 +431,11 @@ void setup() {
   //Ask user to set alarm time via Serial Monitor
   Serial.println("-------------------------------------------------");
   Serial.println("Smart Room Clock ready ✅");
+  Serial.println("IP Address: " + WiFi.localIP().toString());
   Serial.println("To set an alarm, type time in HH:MM (24-hour).");
   Serial.println("Feel free to change the alarm at anytime using the Serial Monitor.");
   Serial.println("Example: 07:30 or 21:45");
+
   Serial.println("-------------------------------------------------");
 
 }

@@ -266,22 +266,30 @@ nav a:hover,
 /* ============================================================
    SENSOR GRAPHS
    ============================================================ */
-
 /* Graph canvas styling */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  margin-top: 20px;
+}
+
 canvas {
   display: block;
   width: 100%;
-  height: 190px;
-  margin-top: 18px;
+  height: 200px;
+  margin-top: 20px;
 }
 
 /* Chart footer styling */
 .chart-footer {
+  position: relative;
   display: flex;
   justify-content: space-between;
   color: var(--muted);
   font-size: 12px;
 }
+
 
 /* ============================================================
    HUMIDITY
