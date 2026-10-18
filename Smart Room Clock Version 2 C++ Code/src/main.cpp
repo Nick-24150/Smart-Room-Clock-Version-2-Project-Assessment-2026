@@ -59,6 +59,7 @@ int lastLight = -1; // Variable to store the last light level reading
 // buttons/alarm variables
 const long DEBOUNCE_DELAY = 50; // Delay for button debouncing
 bool alarmActive; // Variable to track if the alarm is active
+bool alarmToggled = false; // Variable to track if the alarm has been toggled
 DateTime alarmTime; // Variable to store the alarm time
 unsigned long lastBuzzerToggle = 0; // Variable to store the last time the buzzer state was toggled
 bool buzzerState = false; // Variable to track the current state of the buzzer
@@ -244,8 +245,15 @@ String getOutputStates() {
   myArray["values"][4]["alarmValue"] = alarmValue;
   myArray["values"][4]["unit"] = "HH:MM";
 
+  //Alarm Status
+  myArray["values"][4]["name"] = "Alarm Status"; 
+  myArray["values"][4]["alarmStatus"] = alarmActive ? "Active" : "Inactive";
+  // This reports the on/off toggle, separately from whether the buzzer is currently sounding.
+  myArray["values"][4]["alarmEnabled"] = alarmToggled ? "On" : "Off";
+
+
   //Date 
-  myArray["values"][5]["name"] = "Date";
+  myArray["values"][5]["name"] = "  Date";
   myArray["values"][5]["dateValue"] = dateValue;
   myArray["values"][5]["unit"] = "DOTW-DD-MM-YYYY";
 
@@ -265,14 +273,68 @@ void notifyClients(String state) {
   ws.textAll(state);
 }
 
-// Handles messages from clidents in the if statements below 
+// Handles messages from clidents in the if statements below *NEEDS FURTHER WORK*
 void handleWebSocketMessage(void* arg, uint8_t* data, size_t len) {
   AwsFrameInfo* info = (AwsFrameInfo*)arg;
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-    data[len] = 0;
-    if (strcmp((char*)data, "getStates") == 0) {
+    if (len > 128) {
+      Serial.println("WebSocket message rejected: message too large.");
+      return;
+    }
+
+    String message;
+    message.reserve(len);
+    for (size_t i = 0; i < len; i++) {
+      message += (char)data[i];
+    }
+
+    if (message == "getStates") {
       notifyClients(getOutputStates());
-    } 
+      return;
+    }
+
+    if (!message.startsWith("{")) {
+      return;
+    }
+
+    JSONVar request = JSON.parse(message);
+    if (JSON.typeof(request) != "object" ||
+        JSON.typeof(request["command"]) != "string" ||
+        JSON.typeof(request["time"]) != "string" ||
+        JSON.typeof(request["enabled"]) != "string") {
+      Serial.println("WebSocket alarm update rejected: invalid message.");
+      return;
+    }
+
+    String command = (const char*)request["command"];
+    String timeInput = (const char*)request["time"];
+    String alarmEnabled = (const char*)request["enabled"];
+    if (command != "setAlarm" ||
+        (alarmEnabled != "On" && alarmEnabled != "Off") ||
+        timeInput.length() != 5 || timeInput.charAt(2) != ':' ||
+        !isDigit(timeInput.charAt(0)) || !isDigit(timeInput.charAt(1)) ||
+        !isDigit(timeInput.charAt(3)) || !isDigit(timeInput.charAt(4))) {
+      Serial.println("WebSocket alarm update rejected: invalid alarm values.");
+      return;
+    }
+
+    int hours = timeInput.substring(0, 2).toInt();
+    int minutes = timeInput.substring(3, 5).toInt();
+    if (hours >= 24 || minutes >= 60) {
+      Serial.println("WebSocket alarm update rejected: time is out of range.");
+      return;
+    }
+
+    DateTime now = realTimeClock.now();
+    alarmTime = DateTime(now.year(), now.month(), now.day(), hours, minutes, 0);
+    alarmToggled = alarmEnabled == "On";
+    alarmActive = false;
+    noTone(BUZZER_PIN);
+    needsRefresh = true;
+
+    Serial.printf("Alarm updated from webpage: %02d:%02d (%s)\n",
+                  hours, minutes, alarmToggled ? "On" : "Off");
+    notifyClients(getOutputStates());
   }
 }
 
@@ -432,9 +494,10 @@ void setup() {
   Serial.println("-------------------------------------------------");
   Serial.println("Smart Room Clock ready ✅");
   Serial.println("IP Address: " + WiFi.localIP().toString());
-  Serial.println("To set an alarm, type time in HH:MM (24-hour).");
+  Serial.println("To set an alarm, please enable by typing 'ON' followed by the time in HH:MM (24-hour).");
+  Serial.println("Note that you can only set 1 alarm at a time. If you set a new alarm, it will overwrite the previous one.");
   Serial.println("Feel free to change the alarm at anytime using the Serial Monitor.");
-  Serial.println("Example: 07:30 or 21:45");
+  Serial.println("Example: ON 07:30 or ON 21:45");
 
   Serial.println("-------------------------------------------------");
 
@@ -605,11 +668,15 @@ void screenPhases() {
   } else if (currentScreenPhase == 2) {
     //---PHASE 3: ALARM---
     tftClockScreenDisplay.setTextSize(4);
-    tftClockScreenDisplay.setCursor(57, 40);
+    tftClockScreenDisplay.setCursor(55, 25);
     tftClockScreenDisplay.println("ALARM");
 
     tftClockScreenDisplay.setTextSize(3);
-    tftClockScreenDisplay.setCursor(72, 90);
+    tftClockScreenDisplay.setCursor(55, 72);
+    tftClockScreenDisplay.println(alarmToggled ? "ENABLED" : "DISABLED");
+
+    tftClockScreenDisplay.setTextSize(3);
+    tftClockScreenDisplay.setCursor(55, 108);
     tftClockScreenDisplay.printf("%02d:%02d", alarmTime.hour(), alarmTime.minute()); //display alarm time in HH:MM format
   }
 }  
@@ -654,7 +721,8 @@ void playAlarmMelody() {
 void buzzerOutput() {
   DateTime now = realTimeClock.now();
   // Check if the current time matches the alarm time and the alarm is not already active
-  if (now.hour() == alarmTime.hour() &&
+  if (alarmToggled &&
+      now.hour() == alarmTime.hour() &&
       now.minute() == alarmTime.minute() &&
       now.second() <= 2 &&
       !alarmActive) {
@@ -748,37 +816,49 @@ void roomLighting() {
 //-----CHECK SERIAL FOR ALARM INPUT-----
 void checkSerialForAlarm() {
   if (Serial.available() > 0) {
-    // Read input until user presses Enter
-    String AlarmInput = Serial.readStringUntil('\n');
-    AlarmInput.trim(); // Remove any leading/trailing whitespace
+    // Read the input from the Serial Monitor and trim whitespace and convert to uppercase for easier comparison
+    String alarmInput = Serial.readStringUntil('\n');
+    alarmInput.trim();
+    alarmInput.toUpperCase();
 
-    // Validate input contains a colon
-    int colonIndex = AlarmInput.indexOf(':');
-    if (colonIndex > 0) {
-      int hours = AlarmInput.substring(0, colonIndex).toInt();   // extract hours
-      int minutes = AlarmInput.substring(colonIndex + 1).toInt(); // extract minutes
-
-      // Check valid time range
-      if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-        // Save the alarm
-        DateTime now = realTimeClock.now(); //get current date
-        alarmTime = DateTime(now.year(), now.month(), now.day(), hours, minutes, 0); //set alarm time with current date
-
-        Serial.print("✅  Alarm set to "); 
-        Serial.printf("%02d:%02d\n", hours, minutes); //set alarm confirmation message
-
-        needsRefresh = true; //refresh the screen to show new alarm time
-
-        //if currently in alarm screen phase, refresh to display the new alarm
-        if (currentScreenPhase == 2) {
-          tftClockScreenDisplay.fillScreen(currentLightMode == 0 ? ST77XX_BLACK : ST77XX_WHITE);
-          screenPhases(); // redraw alarm screen
-        }
+    //Check whether the input is to turn the alarm OFF or to set it ON with a specific time
+    if (alarmInput == "OFF") {
+      //turn off the alarm 
+      alarmToggled = false;
+      alarmActive = false;
+      noTone(BUZZER_PIN);
+      Serial.println(" ❌  Alarm disabled.");
+    } else if (alarmInput.startsWith("ON ")) {
+      //turn on the alarm and read the time input
+      String timeInput = alarmInput.substring(3);
+      if (timeInput.length() != 5 || timeInput.charAt(2) != ':' ||
+          !isDigit(timeInput.charAt(0)) || !isDigit(timeInput.charAt(1)) ||
+          !isDigit(timeInput.charAt(3)) || !isDigit(timeInput.charAt(4))) {
+        Serial.println("⚠️  Wrong format! Use ON HH:MM (e.g., ON 07:30).");
       } else {
-        Serial.println("⚠️  Invalid time! Please enter in HH:MM (24-hour)."); //when the time is out of range
+        int hours = timeInput.substring(0, 2).toInt();
+        int minutes = timeInput.substring(3, 5).toInt();
+
+        //check if the alarm time set is in 24 hour format and valid
+        if (hours < 24 && minutes < 60) {
+          DateTime now = realTimeClock.now();
+          alarmTime = DateTime(now.year(), now.month(), now.day(), hours, minutes, 0);
+          alarmToggled = true;
+          alarmActive = false;
+          Serial.printf("✅  Alarm enabled for %02d:%02d\n", hours, minutes);
+        } else {
+          Serial.println("⚠️  Invalid time! Enter a time from 00:00 to 23:59.");
+        }
       }
     } else {
-      Serial.println("⚠️  Wrong format! Please use HH:MM (e.g., 07:30)."); //when the format is incorrect
+      Serial.println("⚠️  Use ON HH:MM to set an alarm, or OFF to disable it.");
+    }
+
+    //refresh the screen if the alarm time or status has changed
+    needsRefresh = true;
+    if (currentScreenPhase == 2) {
+      tftClockScreenDisplay.fillScreen(currentLightMode == 0 ? ST77XX_BLACK : ST77XX_WHITE);
+      screenPhases();
     }
   }
 }

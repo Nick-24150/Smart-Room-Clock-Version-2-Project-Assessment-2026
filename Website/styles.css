@@ -1,8 +1,6 @@
-/* ============================================================
-   SMART ROOM CLOCK - WEBSITE THEME
+/* SMART ROOM CLOCK - WEBSITE THEME
    Change colours ONLY in this section to customise the website.
-   These colours affect only the website, NOT the ESP32 TFT display.
-   ============================================================ */
+   These colours affect only the website, NOT the ESP32 TFT display. */
 
 :root {
   /* Main background */
@@ -56,18 +54,13 @@
   --shadow: var(--theme-shadow);
 }
 
-/* ============================================================
-   WEBSITE BRIGHTNESS MODES
-   These are controlled by JavaScript and are separate from the
-   ESP32 display background/text colour settings.
-   ============================================================ */
-
+/*WEBSITE BRIGHTNESS MODES*/
 
 /* Dark mode */
 html[data-brightness="dark"] {
-  --bg: #111827;
-  --card: #1f2937;
-  --text: #f9fafb;
+  --bg: #05080c;
+  --card: #0f141b;
+  --text: #f9fafbbc;
   --muted: #9ca3af;
   --border: #374151;
   --input-bg: #374151;
@@ -88,7 +81,6 @@ html[data-brightness="medium"] {
 }
 
 /* Bright and Auto mode */
-html[data-brightness="auto"],
 html[data-brightness="bright"] {
    --bg: var(--theme-bg);
   --card: var(--theme-card);
@@ -103,9 +95,7 @@ html[data-brightness="bright"] {
   --shadow: var(--theme-shadow);
 }
 
-/* ============================================================
-   GENERAL
-   ============================================================ */
+/*GENERAL*/
 
 /* Reset box-sizing for all elements */
 * {
@@ -129,9 +119,7 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* ============================================================
-   HEADER / NAVIGATION
-   ============================================================ */
+/*HEADER / NAVIGATION*/
 
 
 /* Top bar styling */
@@ -185,9 +173,7 @@ nav a:hover,
   color: var(--accent);
 }
 
-/* ============================================================
-   DASHBOARD LAYOUT
-   ============================================================ */
+/*DASHBOARD LAYOUT*/
 
 /* Dashboard container styling */
 .dashboard {
@@ -263,9 +249,8 @@ nav a:hover,
   font-weight: bold;
 }
 
-/* ============================================================
-   SENSOR GRAPHS
-   ============================================================ */
+/*SENSOR GRAPHS*/
+
 /* Graph canvas styling */
 .chart-container {
   position: relative;
@@ -291,9 +276,7 @@ canvas {
 }
 
 
-/* ============================================================
-   HUMIDITY
-   ============================================================ */
+/*HUMIDITY*/
 
 /* Humidity value styling */
 .humidity-value {
@@ -326,9 +309,7 @@ canvas {
   transition: width 0.5s ease;
 }
 
-/* ============================================================
-   TIME / DATE
-   ============================================================ */
+/*TIME / DATE*/
 
 /* Date display styling */
 .date-display {
@@ -343,9 +324,7 @@ canvas {
   letter-spacing: 2px;
 }
 
-/* ============================================================
-   ALARMS
-   ============================================================ */
+/*ALARMS*/
 
 /* Alarm list and settings alarm list styling */
 .alarm-list,
@@ -377,62 +356,15 @@ canvas {
   color: var(--muted);
 }
 
-/* ============================================================
-   TOGGLE SWITCHES
-   ============================================================ */
 
-/* Toggle switch container styling */
-.toggle {
-  position: relative;
-  width: 44px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
-/* Hide the checkbox input for the toggle switch */
-.toggle input {
-  display: none;
-}
-
-/* Slider styling for the toggle switch */
-.slider {
-  position: absolute;
-  inset: 0;
-  background: var(--toggle-off);
-  border-radius: 30px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-/* Slider knob styling for the toggle switch */
-.slider:before {
-  content: "";
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  left: 3px;
-  top: 3px;
-  background: #ffffff;
-  border-radius: 50%;
-  transition: 0.2s;
-}
-
-/* Change background color of the slider when the toggle is checked */
-.toggle input:checked + .slider {
-  background: var(--accent);
-}
-
-/* Move the slider knob to the right when the toggle is checked */
-.toggle input:checked + .slider:before {
-  transform: translateX(20px);
-}
-
-/* ============================================================
-   FOOTER
-   ============================================================ */
+/*FOOTER*/
 
 /* Footer styling */
 footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
   margin-top: 40px;
   padding: 18px 5%;
   border-top: 1px solid var(--border);
@@ -454,9 +386,7 @@ footer a:hover {
   text-decoration: underline;
 }
 
-/* ============================================================
-   SETTINGS PAGE
-   ============================================================ */
+/*SETTINGS PAGE*/
 
 /* Settings page container styling */
 .settings-page {
@@ -501,21 +431,19 @@ footer a:hover {
 .radio-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 20px;
 }
 
-/* Colour grid and connection grid styling */
-.colour-grid,
-.connection-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
+/* Prevent default radio margins from disrupting alignment */
+.radio-group input[type="radio"] {
+  margin: 0;
 }
+
 
 /* Alarm form styling */
 .colour-grid label,
 .connection-grid label,
-.alarm-form label {
+.alarm-form > .setting-row > label {
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -524,19 +452,9 @@ footer a:hover {
   flex: 1 1 180px;
 }
 
-/* Colour input and select styling */
-input[type="color"] {
-  width: 100%;
-  height: 42px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--input-bg);
-  padding: 3px;
-  cursor: pointer;
-}
+
 
 /* Text input, time input, and select styling */
-input[type="text"],
 input[type="time"],
 select {
   padding: 11px;
@@ -555,16 +473,17 @@ select {
 /* Alarm form styling */
 .alarm-form {
   display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  align-items: end;
+  flex-direction: column;
+  gap: 20px;
 }
 
 /* Form actions styling */
 .form-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
+
 
 /* Button styling for primary and secondary buttons */
 .primary-button,
@@ -596,30 +515,8 @@ select {
 
 /* Secondary button hover effect */
 .primary-button:active,
-.secondary-button:active,
-.danger-button:active {
+.secondary-button:active {
   transform: translateY(1px);
-}
-
-/* Alarm item grid layout for settings alarm list */
-.settings-alarm-list .alarm-item {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-}
-
-/* Danger button styling */
-.danger-button {
-  border: 0;
-  background: var(--theme-danger-bg);
-  color: var(--theme-danger-text);
-  padding: 8px 10px;
-  border-radius: 7px;
-  cursor: pointer;
-}
-
-/* Danger button hover effect */
-.danger-button:hover {
-  background: var(--theme-danger-hover);
 }
 
 /* Muted text styling */
@@ -628,9 +525,7 @@ select {
   font-size: 13px;
 }
 
-/* ============================================================
-   RESPONSIVE DESIGN
-   ============================================================ */
+/*RESPONSIVE DESIGN*/
 
 /* Adjust layout for screens smaller than 700px */
 @media (max-width: 700px) {
@@ -657,11 +552,6 @@ select {
   .sensor-card,
   .info-card {
     flex-basis: 100%;
-  }
-
-  /* Stack settings alarm list items vertically */
-  .settings-alarm-list .alarm-item {
-    grid-template-columns: 1fr;
   }
 
   /* Stack footer content vertically */

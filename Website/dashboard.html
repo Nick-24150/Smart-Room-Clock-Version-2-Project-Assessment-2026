@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smart Room Clock - Dashboard</title> <!-- Title of the page - Dashboard Page -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Chart.js library for rendering charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- CDN Chart.js library for rendering charts -->
   <link rel="stylesheet" href="styles.css"> <!-- Font Styles taken from Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -90,7 +90,18 @@
         <h2>ALARMS</h2>
         <a class="small-button" href="settings.html">Manage</a> <!-- Link to the settings page for managing alarms -->
       </div>
-      <div id="dashboardAlarms" class="alarm-list"></div> <!-- Container for displaying the list of alarms on the dashboard -->
+      <div class="alarm-list">
+        <div class="alarm-item">
+          <div>
+            <strong>Alarm</strong>
+            <small>Saved time</small>
+          </div>
+          <strong id="alarmDashboard">--:--</strong>
+        </div>
+      </div>
+      <br>
+      <br>
+      <span class="status-badge">Enabled: <b id="alarmEnabled">N/A</b></span>
     </section>
   </main>
 
@@ -99,7 +110,6 @@
     <span>&copy; Smart Room Clock 2026 - Nick Nguyen</span>
     <a href="settings.html">To Settings Page</a> <!-- Link to the settings page -->
   </footer>
-
   <script src="script.js"></script> <!-- Link to the external JavaScript file for dashboard functionality -->
 </body>
 </html>

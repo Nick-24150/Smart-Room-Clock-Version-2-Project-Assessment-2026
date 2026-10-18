@@ -1,7 +1,15 @@
+//---------------------------------------------
+//Sensor Data Integration/Displayal
+//---------------------------------------------
+
 //Create variables for when the websocket is setup
 var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
 const MAX_CHART_READINGS = 8;
+const BRIGHTNESS_STORAGE_KEY = "smartRoomClockSettings";
+const BRIGHTNESS_MODES = ["dark", "medium", "bright"];
+
+initialiseBrightnessTheme();
 
 //Listen for the window loading (or reloading) and call the below method
 window.addEventListener("load", onload);
@@ -56,6 +64,7 @@ function onMessage(event) {
     const lightLevel = parseSensorNumber(values[3]?.lightValue);
     const lightMode = values[3]?.lightMode;
     const alarmTime = values[4]?.alarmValue;
+    const alarmEnabled = values[4]?.alarmEnabled;
     const dateValue = values[5]?.dateValue;
     const timeValue = values[5]?.timeValue;
     const label = new Date().toLocaleTimeString([], {
@@ -65,19 +74,22 @@ function onMessage(event) {
     });
 
     // Update the dashboard elements with the received values
-    setDashboardText("lightMode", getLightModeLabel(lightMode));
-    setDashboardText("comfortMode", comfortMode ?? "N/A");
-    setDashboardText("lightValue", Number.isFinite(lightLevel) ? lightLevel.toFixed(0) : "N/A");
-    setDashboardText("tempValue", Number.isFinite(temperature) ? `${temperature.toFixed(1)}°C` : "N/A");
-    setDashboardText("humidityValue", Number.isFinite(humidity) ? `${humidity.toFixed(1)}%` : "N/A");
-    setDashboardText("dateDisplay", dateValue ?? "--");
-    setDashboardText("timeDisplay", timeValue ?? "--:--");
-    setDashboardText("alarmDashboard", alarmTime ?? "N/A");
+    setWebsiteText("lightMode", getLightModeLabel(lightMode));
+    setWebsiteText("comfortMode", comfortMode ?? "N/A");
+    setWebsiteText("lightValue", Number.isFinite(lightLevel) ? lightLevel.toFixed(0) : "N/A");
+    setWebsiteText("tempValue", Number.isFinite(temperature) ? `${temperature.toFixed(1)}°C` : "N/A");
+    setWebsiteText("humidityValue", Number.isFinite(humidity) ? `${humidity.toFixed(1)}%` : "N/A");
+    setWebsiteText("dateDisplay", dateValue ?? "--");
+    setWebsiteText("timeDisplay", timeValue ?? "--:--");
+    // Show the configured alarm time separately from whether the alarm is enabled.
+    setWebsiteText("alarmDashboard", alarmTime ?? "--:--");
+    setWebsiteText("alarmEnabled", alarmEnabled ?? "N/A");
 
     // Update the humidity bar fill based on the received humidity value
     const humidityFill = document.getElementById("humidityFill");
     if (humidityFill && Number.isFinite(humidity)) {
         const percentage = Math.max(0, Math.min(100, humidity));
+        //fill the bar according to the percentage
         humidityFill.style.width = `${percentage}%`;
         humidityFill.setAttribute("aria-valuenow", String(percentage));
     }
@@ -100,7 +112,7 @@ function parseSensorNumber(value) {
 }
 
 // Update the text content of a dashboard element by its ID
-function setDashboardText(id, value) {
+function setWebsiteText(id, value) {
     const element = document.getElementById(id);
     if (element) {
         element.textContent = String(value);
@@ -125,6 +137,7 @@ function addChartReading(chart, value, label) {
     chart.data.datasets[0].data.push(value);
 
     while (chart.data.labels.length > MAX_CHART_READINGS) {
+        //Get rid of old readings after the max number of nodes reach
         chart.data.labels.shift();
         chart.data.datasets[0].data.shift();
     }
@@ -292,6 +305,8 @@ const tempChart = new Chart(tempCanvas, {
 });
 
 
+
+
 //Sends a message to the webserver/esp to get the states of variables we care about when the webpage loads for the first time
 function getStates() {
     //this triggers a notifyClients method in the c++ file which comes back by the onMessage function
@@ -299,3 +314,215 @@ function getStates() {
         websocket.send("getStates");
     }
 }
+
+
+
+
+
+//---------------------------------------------
+//Website Interaction
+//---------------------------------------------
+
+
+
+//Initialise the website brightness theme.
+function initialiseBrightnessTheme() {
+
+    // Set the default theme to bright.
+    let brightness = "bright";
+
+    try {
+        // Retrieve the previously saved settings from the browser.
+        // BRIGHTNESS_STORAGE_KEY is the key used to store these settings.
+        const savedSettings = localStorage.getItem(BRIGHTNESS_STORAGE_KEY);
+
+        if (savedSettings) {
+
+            // Convert the saved JSON string into a JavaScript object.
+            const settings = JSON.parse(savedSettings);
+
+            // Check that the saved brightness theme is supported.
+            if (BRIGHTNESS_MODES.includes(settings.brightness)) {
+
+                // Use the saved theme if it is valid.
+                brightness = settings.brightness;
+            }
+        }
+    // Report an error if the saved settings cannot be retrieved or parsed, while allowing the website to continue running.
+    } catch (error) {
+        console.warn("Could not load the saved website theme:", error);
+    }
+
+    // Apply the selected or default brightness theme to the website.
+    applyBrightnessTheme(brightness);
+
+    // Find the radio button corresponding to the selected theme.
+    const selectedRadio = document.querySelector(
+        `input[name="brightness"][value="${brightness}"]`
+    );
+
+    // Mark that radio button as selected, if it exists.
+    if (selectedRadio) {
+        selectedRadio.checked = true;
+    }
+
+    // Find all radio buttons used to select the brightness theme.
+    document.querySelectorAll('input[name="brightness"]').forEach(radio => {
+
+        // Listen for changes when the user selects a different theme.
+        radio.addEventListener("change", () => {
+
+            // Only save the theme if this radio button is selected.
+            if (radio.checked) {
+
+                // Apply the new theme and save the preference.
+                saveBrightnessTheme(radio.value);
+            }
+        });
+    });
+}
+
+
+//Apply the chosen brightness theme to the website.
+function applyBrightnessTheme(brightness) {
+
+    // Validate the requested theme. If not supported, revert to default "bright".
+    const validBrightness = BRIGHTNESS_MODES.includes(brightness)
+        ? brightness
+        : "bright";
+
+    // Set the brightness theme as a data attribute on the root HTML element.
+    // CSS can use this attribute to change the website's colours and styling.
+    document.documentElement.dataset.brightness = validBrightness;
+}
+
+
+//Save the selected brightness theme.
+function saveBrightnessTheme(brightness) {
+
+    // Reject unsupported brightness themes.
+    if (!BRIGHTNESS_MODES.includes(brightness)) {
+
+        // Display a warning in the browser's developer console.
+        console.warn("Ignoring unsupported website theme:", brightness);
+
+        // Stop the function so an invalid theme is not saved.
+        return;
+    }
+
+    // Update the website immediately so the user sees the change.
+    applyBrightnessTheme(brightness);
+
+    try {
+        // Retrieve any existing saved settings.
+        const savedSettings = localStorage.getItem(BRIGHTNESS_STORAGE_KEY);
+
+        // Parse existing settings, or create an empty object if none exist.
+        const settings = savedSettings ? JSON.parse(savedSettings) : {};
+
+        // Update only the brightness property.
+        // Other settings stored in this object remain unchanged.
+        settings.brightness = brightness;
+
+        // Convert the updated object to JSON and save it in the browser.
+        localStorage.setItem(
+            BRIGHTNESS_STORAGE_KEY,
+            JSON.stringify(settings)
+        );
+
+    } catch (error) {
+        // Report an error if the settings cannot be saved.
+        console.error("Could not save the selected website theme:", error);
+    }
+}
+
+
+//Save the display settings when the user activates the save action.
+function saveDisplaySettings() {
+
+    // Find the currently selected brightness radio button.
+    const selectedRadio = document.querySelector(
+        'input[name="brightness"]:checked'
+    );
+
+    // Save the selected theme.
+    // If no radio button is selected, use "bright" as the default.
+    saveBrightnessTheme(selectedRadio ? selectedRadio.value : "bright");
+
+    // Display a confirmation message on the website.
+    setWebsiteText(
+        "theme-DisplayMessage",
+        "Website brightness theme saved. Future load will select saved theme."
+    );
+}
+
+
+//******NEEDS FURTHER WORK BELOW********
+
+
+function getAlarmForm() {
+    const alarmForm = document.getElementById("alarmForm");
+    if (!alarmForm) {
+        return;
+    }
+
+    let status = document.getElementById("alarmFormStatus");
+    if (!status) {
+        status = document.createElement("p");
+        status.id = "alarmFormStatus";
+        status.className = "muted";
+        status.setAttribute("role", "status");
+        status.setAttribute("aria-live", "polite");
+        alarmForm.appendChild(status);
+    }
+
+    alarmForm.addEventListener("submit", sendAlarm);
+}
+
+function sendAlarm(event) {
+    event.preventDefault();
+
+    const timeInput = document.getElementById("form_alarmTime");
+    const enabledInput = document.querySelector(
+        'input[name="form_alarmEnabled"]:checked'
+    );
+    const alarmTime = timeInput?.value;
+    const alarmEnabled = enabledInput?.value;
+
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(alarmTime ?? "") ||
+        (alarmEnabled !== "On" && alarmEnabled !== "Off")) {
+        setAlarmFormStatus("Choose a valid alarm time and enabled state.");
+        return;
+    }
+
+    if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+        setAlarmFormStatus("Alarm not sent: the ESP32 is not connected.");
+        return;
+    }
+
+    try {
+        websocket.send(JSON.stringify({
+            command: "setAlarm",
+            time: alarmTime,
+            enabled: alarmEnabled
+        }));
+        setAlarmFormStatus("Alarm update sent to the ESP32.");
+    } catch (error) {
+        console.error("Could not send alarm update to the ESP32:", error);
+        setAlarmFormStatus("Alarm not sent. Check the connection and try again.");
+    }
+}
+
+function setAlarmFormStatus(message) {
+    setWebsiteText("alarmFormStatus", message);
+}
+
+function resetAlarmForm() {
+    const alarmForm = document.getElementById("alarmForm");
+    if (alarmForm) {
+        alarmForm.reset();
+        setAlarmFormStatus("");
+    }
+}
+
+document.addEventListener("DOMContentLoaded", getAlarmForm, { once: true });
