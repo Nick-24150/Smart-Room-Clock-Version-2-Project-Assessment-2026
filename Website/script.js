@@ -81,9 +81,8 @@ function onMessage(event) {
     setWebsiteText("humidityValue", Number.isFinite(humidity) ? `${humidity.toFixed(1)}%` : "N/A");
     setWebsiteText("dateDisplay", dateValue ?? "--");
     setWebsiteText("timeDisplay", timeValue ?? "--:--");
-    // Show the configured alarm time separately from whether the alarm is enabled.
-    setWebsiteText("alarmDashboard", alarmTime ?? "--:--");
-    setWebsiteText("alarmEnabled", alarmEnabled ?? "N/A");
+    // Show the alarm state reported in the ESP32 values array on the dashboard.
+    updateAlarmDashboard(alarmTime, alarmEnabled);
 
     // Update the humidity bar fill based on the received humidity value
     const humidityFill = document.getElementById("humidityFill");
@@ -450,79 +449,110 @@ function saveDisplaySettings() {
     saveBrightnessTheme(selectedRadio ? selectedRadio.value : "bright");
 
     // Display a confirmation message on the website.
-    setWebsiteText(
-        "theme-DisplayMessage",
-        "Website brightness theme saved. Future load will select saved theme."
-    );
+    setWebsiteText("theme-DisplayMessage","Website brightness theme saved. Future load will select saved theme.");
 }
 
+ //---------------------------------------------
+ // Alarm Form Submission / Functionalities
+ //---------------------------------------------
 
-//******NEEDS FURTHER WORK BELOW********
+// Wait for the website to finish loading
+document.addEventListener("DOMContentLoaded", () => {
 
-
-function getAlarmForm() {
+    // Get references to the alarm form and its input fields
     const alarmForm = document.getElementById("alarmForm");
-    if (!alarmForm) {
+    const inputtedAlarmTime = document.getElementById("form_alarmTime");
+
+    // Stop if the required form elements do not exist
+    if (!alarmForm || !inputtedAlarmTime) {
+        console.warn("Alarm form or alarm time input was not found.");
         return;
     }
 
-    let status = document.getElementById("alarmFormStatus");
-    if (!status) {
-        status = document.createElement("p");
-        status.id = "alarmFormStatus";
-        status.className = "muted";
-        status.setAttribute("role", "status");
-        status.setAttribute("aria-live", "polite");
-        alarmForm.appendChild(status);
-    }
+    // Listen for the user submitting the alarm form
+    alarmForm.addEventListener("submit", function (event) {
 
-    alarmForm.addEventListener("submit", sendAlarm);
-}
+        // Prevent the browser from refreshing the page
+        event.preventDefault();
 
-function sendAlarm(event) {
-    event.preventDefault();
+        // Collect the alarm time entered by the user
+        const timeInput = inputtedAlarmTime.value;
 
-    const timeInput = document.getElementById("form_alarmTime");
-    const enabledInput = document.querySelector(
-        'input[name="form_alarmEnabled"]:checked'
-    );
-    const alarmTime = timeInput?.value;
-    const alarmEnabled = enabledInput?.value;
+        // Collect the selected On/Off radio button
+        const enabledInput = document.querySelector(
+            'input[name="form_alarmEnabled"]:checked'
+        );
 
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(alarmTime ?? "") ||
-        (alarmEnabled !== "On" && alarmEnabled !== "Off")) {
-        setAlarmFormStatus("Choose a valid alarm time and enabled state.");
-        return;
-    }
+        // Check that the required fields have been completed
+        if (!timeInput || !enabledInput) {
+            setWebsiteText("alarm-DisplayMessage", "Please select an alarm time and On/Off setting.");
+            return;
+        }
 
-    if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-        setAlarmFormStatus("Alarm not sent: the ESP32 is not connected.");
-        return;
-    }
+        // Convert the selected setting into a Boolean value
+        const alarmEnabled = enabledInput.value === "On";
 
-    try {
-        websocket.send(JSON.stringify({
-            command: "setAlarm",
-            time: alarmTime,
+        // Create an object containing the alarm settings
+        const alarmData = {
+            type: "setAlarm",
+            time: timeInput,
             enabled: alarmEnabled
-        }));
-        setAlarmFormStatus("Alarm update sent to the ESP32.");
-    } catch (error) {
-        console.error("Could not send alarm update to the ESP32:", error);
-        setAlarmFormStatus("Alarm not sent. Check the connection and try again.");
-    }
+        };
+
+        // Check that the existing WebSocket is connected
+        if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+            setWebsiteText("alarm-DisplayMessage", "Unable to save the alarm. Please check the connection to the clock.");
+            return;
+        }
+
+        try {
+            // Send the alarm settings to the ESP32 as JSON
+            websocket.send(JSON.stringify(alarmData));
+
+            // Update the website dashboard with the new alarm
+            updateAlarmDashboard(timeInput, alarmEnabled);
+
+            // Clear the form after submitting successfully
+            alarmForm.reset();
+
+            // Log the submitted settings for debugging
+            console.log("Alarm settings sent to the ESP32:", alarmData);
+
+        } catch (error) {
+            // Report an error if sending the message fails
+            console.error("Failed to send alarm settings:", error);
+            setWebsiteText("alarm-DisplayMessage", "The alarm could not be sent. Please try again.");
+        }
+    });
+});
+
+
+
+// Update the existing alarm information on the dashboard
+function updateAlarmDashboard(time, enabled) {
+
+    // Display the configured alarm time
+    setWebsiteText("alarmDashboard", time || "--:--");
+
+    // ESP32 may report the enabled state as a boolean or as text in its JSON array.
+    const enabledText = enabled === true || enabled === 1 ||
+        enabled === "1" || enabled === "true" || enabled === "On"
+        ? "On"
+        : enabled === false || enabled === 0 || enabled === "0" ||
+            enabled === "false" || enabled === "Off"
+            ? "Off"
+            : "N/A";
+    setWebsiteText("alarmEnabled", enabledText);
 }
 
-function setAlarmFormStatus(message) {
-    setWebsiteText("alarmFormStatus", message);
-}
 
+// Function called by the Clear button
 function resetAlarmForm() {
+
+    // Get the alarm form
     const alarmForm = document.getElementById("alarmForm");
-    if (alarmForm) {
-        alarmForm.reset();
-        setAlarmFormStatus("");
-    }
+
+    // Reset the form to its default values
+    if (alarmForm) {alarmForm.reset();}
 }
 
-document.addEventListener("DOMContentLoaded", getAlarmForm, { once: true });
