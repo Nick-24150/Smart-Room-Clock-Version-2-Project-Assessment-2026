@@ -5,6 +5,8 @@
 //Create variables for when the websocket is setup
 var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
+var lightChart = null;
+var tempChart = null;
 const MAX_CHART_READINGS = 8;
 const BRIGHTNESS_STORAGE_KEY = "smartRoomClockSettings";
 const BRIGHTNESS_MODES = ["dark", "medium", "bright"];
@@ -38,64 +40,6 @@ function onOpen(event) {
 function onClose(event) {
     console.log("WebSocket closed");
     setTimeout(initWebSocket, 2000);
-}
-
-//save the values sent from the webserver/esp in a JSON format and update the dashboard page with the values
-function onMessage(event) {
-    var message;
-
-    try {
-        message = JSON.parse(event.data);
-    } catch (error) {
-        console.error("WebSocket sent invalid JSON:", error);
-        return;
-    }
-
-    if (!message || !Array.isArray(message.values)) {
-        console.warn("Unexpected WebSocket data format:", message);
-        return;
-    }
-
-    // Extract values from the message and parse them as needed
-    const values = message.values;
-    const temperature = parseSensorNumber(values[0]?.tempValue);
-    const comfortMode = values[1]?.comfortMode;
-    const humidity = parseSensorNumber(values[2]?.humidValue);
-    const lightLevel = parseSensorNumber(values[3]?.lightValue);
-    const lightMode = values[3]?.lightMode;
-    const alarmTime = values[4]?.alarmValue;
-    const alarmEnabled = values[4]?.alarmEnabled;
-    const dateValue = values[5]?.dateValue;
-    const timeValue = values[5]?.timeValue;
-    const label = new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-    });
-
-    // Update the dashboard elements with the received values
-    setWebsiteText("lightMode", getLightModeLabel(lightMode));
-    setWebsiteText("comfortMode", comfortMode ?? "N/A");
-    setWebsiteText("lightValue", Number.isFinite(lightLevel) ? lightLevel.toFixed(0) : "N/A");
-    setWebsiteText("tempValue", Number.isFinite(temperature) ? `${temperature.toFixed(1)}°C` : "N/A");
-    setWebsiteText("humidityValue", Number.isFinite(humidity) ? `${humidity.toFixed(1)}%` : "N/A");
-    setWebsiteText("dateDisplay", dateValue ?? "--");
-    setWebsiteText("timeDisplay", timeValue ?? "--:--");
-    // Show the alarm state reported in the ESP32 values array on the dashboard.
-    updateAlarmDashboard(alarmTime, alarmEnabled);
-
-    // Update the humidity bar fill based on the received humidity value
-    const humidityFill = document.getElementById("humidityFill");
-    if (humidityFill && Number.isFinite(humidity)) {
-        const percentage = Math.max(0, Math.min(100, humidity));
-        //fill the bar according to the percentage
-        humidityFill.style.width = `${percentage}%`;
-        humidityFill.setAttribute("aria-valuenow", String(percentage));
-    }
-
-    // Add the new readings to the respective charts
-    addChartReading(lightChart, lightLevel, label);
-    addChartReading(tempChart, temperature, label);
 }
 
 // Helper function to parse sensor values safely
@@ -148,7 +92,7 @@ function addChartReading(chart, value, label) {
 
 // Line Chart for Light Level
 const lightCanvas = document.getElementById("lightChart");
-const lightChart = new Chart(lightCanvas, {
+lightChart = lightCanvas ? new Chart(lightCanvas, {
     type: "line",
     data: {
         labels: [],
@@ -222,12 +166,12 @@ const lightChart = new Chart(lightCanvas, {
             }
         }
     }   
-});
+}) : null;
 
 
 // Line Chart for Temperature
 const tempCanvas = document.getElementById("tempChart");
-const tempChart = new Chart(tempCanvas, {
+tempChart = tempCanvas ? new Chart(tempCanvas, {
     type: "line",
 
     data: {
@@ -301,7 +245,67 @@ const tempChart = new Chart(tempCanvas, {
             }
         }
     }
-});
+}) : null;
+
+
+//save the values sent from the webserver/esp in a JSON format and update the dashboard page with the values
+function onMessage(event) {
+    var message;
+
+    try {
+        message = JSON.parse(event.data);
+    } catch (error) {
+        console.error("WebSocket sent invalid JSON:", error);
+        return;
+    }
+
+    if (!message || !Array.isArray(message.values)) {
+        console.warn("Unexpected WebSocket data format:", message);
+        return;
+    }
+
+    // Extract values from the message and parse them as needed
+    const values = message.values;
+    const temperature = parseSensorNumber(values[0]?.tempValue);
+    const comfortMode = values[1]?.comfortMode;
+    const humidity = parseSensorNumber(values[2]?.humidValue);
+    const lightLevel = parseSensorNumber(values[3]?.lightValue);
+    const lightMode = values[3]?.lightMode;
+    const alarmTime = values[4]?.alarmValue;
+    const alarmEnabled = values[4]?.alarmEnabled;
+    const dateValue = values[5]?.dateValue;
+    const timeValue = values[5]?.timeValue;
+    const label = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+    });
+
+    // Update the dashboard elements with the received values
+    setWebsiteText("lightMode", getLightModeLabel(lightMode));
+    setWebsiteText("comfortMode", comfortMode ?? "N/A");
+    setWebsiteText("lightValue", Number.isFinite(lightLevel) ? lightLevel.toFixed(0) : "N/A");
+    setWebsiteText("tempValue", Number.isFinite(temperature) ? `${temperature.toFixed(1)}°C` : "N/A");
+    setWebsiteText("humidityValue", Number.isFinite(humidity) ? `${humidity.toFixed(1)}%` : "N/A");
+    setWebsiteText("dateDisplay", dateValue ?? "--");
+    setWebsiteText("timeDisplay", timeValue ?? "--:--");
+    // Show the alarm state reported in the ESP32 values array on the dashboard.
+    setWebsiteText("alarmDashboard", alarmTime ?? "--:--");
+    setWebsiteText("alarmEnabled", alarmEnabled ?? "N/A");
+
+    // Update the humidity bar fill based on the received humidity value
+    const humidityFill = document.getElementById("humidityFill");
+    if (humidityFill && Number.isFinite(humidity)) {
+        const percentage = Math.max(0, Math.min(100, humidity));
+        //fill the bar according to the percentage
+        humidityFill.style.width = `${percentage}%`;
+        humidityFill.setAttribute("aria-valuenow", String(percentage));
+    }
+
+    // Add the new readings to the respective charts
+    addChartReading(lightChart, lightLevel, label);
+    addChartReading(tempChart, temperature, label);
+}
 
 
 
@@ -316,13 +320,9 @@ function getStates() {
 
 
 
-
-
 //---------------------------------------------
-//Website Interaction
+//Website Themes
 //---------------------------------------------
-
-
 
 //Initialise the website brightness theme.
 function initialiseBrightnessTheme() {
@@ -456,103 +456,71 @@ function saveDisplaySettings() {
  // Alarm Form Submission / Functionalities
  //---------------------------------------------
 
-// Wait for the website to finish loading
-document.addEventListener("DOMContentLoaded", () => {
 
-    // Get references to the alarm form and its input fields
+/* Initialise alarm form functionality */
+function initialiseAlarmForm() {
     const alarmForm = document.getElementById("alarmForm");
-    const inputtedAlarmTime = document.getElementById("form_alarmTime");
 
-    // Stop if the required form elements do not exist
-    if (!alarmForm || !inputtedAlarmTime) {
-        console.warn("Alarm form or alarm time input was not found.");
+    // The dashboard page does not contain the alarm form.
+    if (!alarmForm) {
         return;
     }
 
-    // Listen for the user submitting the alarm form
-    alarmForm.addEventListener("submit", function (event) {
+    const alarmTimeInput = document.getElementById("form_alarmTime");
 
-        // Prevent the browser from refreshing the page
+    if (!alarmTimeInput) {
+        console.error("Alarm time input could not be found.");
+        return;
+    }
+
+    alarmForm.addEventListener("submit", (event) => {
         event.preventDefault();
 
-        // Collect the alarm time entered by the user
-        const timeInput = inputtedAlarmTime.value;
-
-        // Collect the selected On/Off radio button
-        const enabledInput = document.querySelector(
+        const time = alarmTimeInput.value;
+        const selectedAlarm = alarmForm.querySelector(
             'input[name="form_alarmEnabled"]:checked'
         );
 
-        // Check that the required fields have been completed
-        if (!timeInput || !enabledInput) {
-            setWebsiteText("alarm-DisplayMessage", "Please select an alarm time and On/Off setting.");
+        if (!time || !selectedAlarm) {
+            alert("Please enter an alarm time and select On or Off.");
             return;
         }
 
-        // Convert the selected setting into a Boolean value
-        const alarmEnabled = enabledInput.value === "On";
+        if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+            alert("The clock is not connected. Please try again.");
+            console.error("WebSocket is not connected.");
+            return;
+        }
 
-        // Create an object containing the alarm settings
-        const alarmData = {
-            type: "setAlarm",
-            time: timeInput,
-            enabled: alarmEnabled
+        const alarmRequest = {
+            command: "setAlarm",
+            time: time,
+            enabled: selectedAlarm.value
         };
 
-        // Check that the existing WebSocket is connected
-        if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-            setWebsiteText("alarm-DisplayMessage", "Unable to save the alarm. Please check the connection to the clock.");
-            return;
-        }
+        websocket.send(JSON.stringify(alarmRequest));
 
-        try {
-            // Send the alarm settings to the ESP32 as JSON
-            websocket.send(JSON.stringify(alarmData));
+        console.log("Alarm request sent to ESP32:", alarmRequest);
 
-            // Update the website dashboard with the new alarm
-            updateAlarmDashboard(timeInput, alarmEnabled);
-
-            // Clear the form after submitting successfully
-            alarmForm.reset();
-
-            // Log the submitted settings for debugging
-            console.log("Alarm settings sent to the ESP32:", alarmData);
-
-        } catch (error) {
-            // Report an error if sending the message fails
-            console.error("Failed to send alarm settings:", error);
-            setWebsiteText("alarm-DisplayMessage", "The alarm could not be sent. Please try again.");
-        }
+        alarmForm.reset();
     });
-});
+}
 
-
-
-// Update the existing alarm information on the dashboard
-function updateAlarmDashboard(time, enabled) {
-
-    // Display the configured alarm time
-    setWebsiteText("alarmDashboard", time || "--:--");
-
-    // ESP32 may report the enabled state as a boolean or as text in its JSON array.
-    const enabledText = enabled === true || enabled === 1 ||
-        enabled === "1" || enabled === "true" || enabled === "On"
-        ? "On"
-        : enabled === false || enabled === 0 || enabled === "0" ||
-            enabled === "false" || enabled === "Off"
-            ? "Off"
-            : "N/A";
-    setWebsiteText("alarmEnabled", enabledText);
+// Support scripts loaded before or after DOMContentLoaded.
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initialiseAlarmForm);
+} else {
+    initialiseAlarmForm();
 }
 
 
-// Function called by the Clear button
+// Clear the alarm form without changing the saved alarm
 function resetAlarmForm() {
-
-    // Get the alarm form
     const alarmForm = document.getElementById("alarmForm");
 
-    // Reset the form to its default values
-    if (alarmForm) {alarmForm.reset();}
+    if (alarmForm) {
+        alarmForm.reset();
+    }
 }
+
 
