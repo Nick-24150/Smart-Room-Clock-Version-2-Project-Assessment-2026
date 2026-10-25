@@ -90,16 +90,18 @@ function addChartReading(chart, value, label) {
 
 
 
-// Line Chart for Light Level
+// Create the light-level chart ONLY when its canvas is present.
 const lightCanvas = document.getElementById("lightChart");
 lightChart = lightCanvas ? new Chart(lightCanvas, {
     type: "line",
     data: {
+        // Sensor readings and their time labels are appended as messages arrive.
         labels: [],
         datasets: [{
             label: "Light Level (0–4095)",
             data: [],
 
+            // Style the line and lightly shade the area beneath it.
             borderColor: "rgba(75, 192, 192, 1)",
             backgroundColor: "rgba(75, 192, 192, 0.15)",
 
@@ -112,6 +114,7 @@ lightChart = lightCanvas ? new Chart(lightCanvas, {
     },
 
     options: {
+        // Resize with the container and apply incoming updates without animation.
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
@@ -134,6 +137,7 @@ lightChart = lightCanvas ? new Chart(lightCanvas, {
 
         scales: {
             x: {
+                // Display time labels while limiting tick crowding.
                 title: {
                     display: true,
                     text: "Time"
@@ -150,6 +154,7 @@ lightChart = lightCanvas ? new Chart(lightCanvas, {
             },
 
             y: {
+                // Show the full range of the light sensor.
                 type: 'linear',
                 min: 0,
                 max: 4095,
@@ -169,18 +174,20 @@ lightChart = lightCanvas ? new Chart(lightCanvas, {
 }) : null;
 
 
-// Line Chart for Temperature
+// Create the temperature chart ONLY when its canvas is present.
 const tempCanvas = document.getElementById("tempChart");
 tempChart = tempCanvas ? new Chart(tempCanvas, {
     type: "line",
 
     data: {
+        // Sensor readings and their time labels are appended as messages arrive.
         labels: [],
 
         datasets: [{
             label: "Temperature (°C)",
             data: [],
 
+            // Style the line and lightly shade the area beneath it.
             borderColor: "rgba(255, 99, 132, 1)",
             backgroundColor: "rgba(255, 99, 132, 0.15)",
 
@@ -193,6 +200,7 @@ tempChart = tempCanvas ? new Chart(tempCanvas, {
     },
 
     options: {
+        // Resize with the container and apply incoming updates without animation.
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
@@ -215,6 +223,7 @@ tempChart = tempCanvas ? new Chart(tempCanvas, {
 
         scales: {
             x: {
+                // Display time labels while limiting tick crowding.
                 title: {
                     display: true,
                     text: "Time"
@@ -231,6 +240,7 @@ tempChart = tempCanvas ? new Chart(tempCanvas, {
             },
 
             y: {
+                // Keep the temperature axis within a typical room-reading range.
                 min: -10,
                 max: 50,
 
@@ -499,8 +509,9 @@ function initialiseAlarmForm() {
         };
 
         websocket.send(JSON.stringify(alarmRequest));
-
+        //send the alarmRequest format JSON back to ESP32
         console.log("Alarm request sent to ESP32:", alarmRequest);
+        setWebsiteText("alarm-DisplayMessage","Alarm have been saved! Check Serial Monitor/Dashboard page if alarm has been updated.");
 
         alarmForm.reset();
     });

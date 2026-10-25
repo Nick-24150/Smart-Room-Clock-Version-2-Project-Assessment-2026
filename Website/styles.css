@@ -113,6 +113,8 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: "Outfit", Arial, Helvetica, sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -361,11 +363,11 @@ canvas {
 
 /* Footer styling */
 footer {
-  position: fixed;
+  position: static;
   left: 0;
   bottom: 0;
   width: 100%;
-  margin-top: 40px;
+  margin-top: auto;
   padding: 18px 5%;
   border-top: 1px solid var(--border);
   background: var(--card);

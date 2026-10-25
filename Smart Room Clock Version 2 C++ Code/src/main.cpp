@@ -144,11 +144,11 @@ const int BRIGHT_THRESHOLD = 2200; //above this value is considered bright
 // temperature thresholds 
 const int COLD_THRESHOLD = 10; //below this temperature is considered cold
 const int COOL_THRESHOLD = 20; //below this temperature is considered cool
-const int COMFORTABLE_THRESHOLD = 25; //below this temperature is considered comfortable
+const int COMFORTABLE_THRESHOLD = 25; //below this temperature is considered comfortable/good
 const int WARM_THRESHOLD = 30; //below this temperature is considered warm
 
 
-//Your network name and password are hidden in the secrets.h file
+//Network name and password are hidden in the secrets.h file
 const char SSID[] = SECRET_SSID;
 const char PASSWORD[] = SECRET_PASS;
 
@@ -389,7 +389,7 @@ void flashLED(int delayTimes, int numTimes);
 void playAlarmMelody();
 void buzzerOutput();
 void roomLighting();
-void checkSerialForAlarm();
+//void checkSerialForAlarm(); UNCOMMENT WHEN IN USE
 void extremeTemperatureAlert(int delayTimes, int numTimes);
 
 
@@ -401,11 +401,19 @@ void setup() {
   Serial.println("Smart Room Clock Initialising...");
   delay(1000); //Wait a second
 
-  //Buzzer initial startup beep
+  //Clock initialise startup beep
   pinMode(BUZZER_PIN, OUTPUT);
+  tone(BUZZER_PIN, 2000);
+  delay(240);
+  noTone(BUZZER_PIN);
   tone(BUZZER_PIN, 1000);
-  delay(100);
-  tone(BUZZER_PIN, 1000);
+  delay(150);
+  noTone(BUZZER_PIN);
+  tone(BUZZER_PIN, 2500);
+  delay(150);
+  noTone(BUZZER_PIN);
+  tone(BUZZER_PIN, 3000);
+  delay(160);
   noTone(BUZZER_PIN);
 
 
@@ -501,7 +509,8 @@ void setup() {
   Serial.println("Smart Room Clock ready ✅");
   Serial.println("IP Address: " + WiFi.localIP().toString());
   Serial.println("To set an alarm, please load the Smart Room Clock Website -> Dashboard -> Alarms (Manage)/Settings");
-  Serial.println("If website is unavailable, please use the serial monitor alarm, by uncomment the void checkSerialForAlarm(). Enter: On/Off followed by 24-hour format alarm.");
+  Serial.println("If website is unavailable, please use the serial monitor alarm, by uncomment the void checkSerialForAlarm().");
+  Serial.println("Enter: On/Off followed by HH-MM (24-hour) format alarm. Example: ON 07:30 or ON 21:45 ");
   Serial.println("© Smart Room Clock 2026 - Nick Nguyen");
   Serial.println("-------------------------------------------------");
 
@@ -519,7 +528,7 @@ void loop() {
   roomLighting(); // Update room lighting based on LDR reading
   playAlarmMelody(); // Play alarm melody if alarm is active
   buzzerOutput(); // Control buzzer output based on alarm
-  checkSerialForAlarm(); // Check for alarms in the serial input
+  //checkSerialForAlarm(); // Check for alarms in the serial input    UNCOMMENT WHEN IN USE
 
   DateTime now = realTimeClock.now(); // Get current time
 
@@ -566,7 +575,7 @@ void neopixelTemperatureColour() {
   // Set NeoPixel colour based on temperature
   if (tempInt < COLD_THRESHOLD) { //if temperature is below cold threshold, set to blue
     pixels.setPixelColor(0, pixels.Color(0, 0, 255)); 
-    extremeTemperatureAlert(500,5); //flash LED and beep buzzer 5 times with 500ms delay
+    extremeTemperatureAlert(500,3); //flash LED and beep buzzer 3 times with 500ms delay
     Serial.println(" ⚠️  Extreme COLD Temperature Detected!"); //print to serial monitor
   } else if (tempInt >= COLD_THRESHOLD && tempInt < COOL_THRESHOLD) { //if temperature is below cool threshold, set to light blue
     pixels.setPixelColor(0, pixels.Color(173, 216, 230)); 
@@ -576,7 +585,7 @@ void neopixelTemperatureColour() {
     pixels.setPixelColor(0, pixels.Color(255, 255, 0)); 
   } else { //if temperature is above warm threshold, set to red
     pixels.setPixelColor(0, pixels.Color(255, 0, 0)); 
-    extremeTemperatureAlert(500,5); //flash LED and beep buzzer 5 times with 500ms delay
+    extremeTemperatureAlert(500,3); //flash LED and beep buzzer 3 times with 500ms delay
     Serial.println(" ⚠️  Extreme HOT Temperature Detected!"); //print to serial monitor
   }
   pixels.show(); // Update NeoPixel with new colour
@@ -659,7 +668,7 @@ void screenPhases() {
     tftClockScreenDisplay.setCursor(sectionWidth * 1 + 18, 70);
     tftClockScreenDisplay.printf("%d C", (int)temp.temperature); //display temperature
     tftClockScreenDisplay.setCursor(sectionWidth * 1 + 18, 100);
-    tftClockScreenDisplay.println(comfort); //display comfort level, COLD, COOL, GOOD, WARM, HOT
+    tftClockScreenDisplay.println(comfort); //display comfort level, COLD, COOL, GOOD (Comfortable), WARM, HOT 
 
     // HUMIDITY
     tftClockScreenDisplay.setTextSize(2);
@@ -725,12 +734,7 @@ void playAlarmMelody() {
 void buzzerOutput() {
   DateTime now = realTimeClock.now();
   // Check if the current time matches the alarm time and the alarm is not already active
-  if (alarmToggled &&
-      now.hour() == alarmTime.hour() &&
-      now.minute() == alarmTime.minute() &&
-      now.second() <= 2 &&
-      !alarmActive) {
-
+  if (alarmToggled && now.hour() == alarmTime.hour() && now.minute() == alarmTime.minute() && now.second() <= 2 &&  !alarmActive) {
     alarmActive = true;
   }
   // If the alarm is active, play the alarm melody and check for button press to stop it
@@ -751,16 +755,36 @@ void extremeTemperatureAlert(int delayTime, int numTimes) {
 
   for (int i = 0; i < numTimes; i++) {
 
-    // LED ON + buzzer ON
+    // Stage 1: Low-pitched attention beep
     digitalWrite(RLEDPIN, HIGH);
-    tone(BUZZER_PIN, 1000);
+    tone(BUZZER_PIN, 600);
+    delay(120);
 
-    delay(delayTime);
-
-    // LED OFF + buzzer OFF
-    digitalWrite(RLEDPIN, LOW);
     noTone(BUZZER_PIN);
+    digitalWrite(RLEDPIN, LOW);
+    delay(80);
 
+    // Stage 2: Two sharper warning beeps
+    for (int j = 0; j < 2; j++) {
+
+      digitalWrite(RLEDPIN, HIGH);
+      tone(BUZZER_PIN, 1000);
+      delay(120);
+
+      noTone(BUZZER_PIN);
+      digitalWrite(RLEDPIN, LOW);
+      delay(80);
+    }
+
+    // Stage 3: Sustained urgent tone
+    digitalWrite(RLEDPIN, HIGH);
+    tone(BUZZER_PIN, 2000);
+    delay(350);
+
+    noTone(BUZZER_PIN);
+    digitalWrite(RLEDPIN, LOW);
+
+    // Pause before repeating the complete pattern
     delay(delayTime);
   }
 }
